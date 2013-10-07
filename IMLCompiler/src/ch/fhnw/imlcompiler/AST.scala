@@ -8,13 +8,15 @@ object AST {
   sealed class Cmd
   case class WhileCmd(expr: Expr, cmd: Cmd) extends Cmd
 
-
   sealed class Expr
   sealed class DyadicExpr(l: Expr, op: Opr, r: Expr) extends Expr
   sealed class MonadicExpr(l: Expr, op: Opr) extends Expr
 
+  case class Ident(value: String) extends Expr
+
   case class MultExpr(l: Expr, op: MultOpr, r: Expr) extends DyadicExpr(l, op, r)
-  case class AddExpr(l: Expr, op: AddOpr, r: Expr) extends DyadicExpr(l, op, r)
+  case class DyadicAddExpr(l: Expr, op: AddOpr, r: Expr) extends DyadicExpr(l, op, r)
+  case class MonadicAddExpr(op: AddOpr, l: Expr) extends MonadicExpr(l, op)
   case class RelExpr(l: Expr, op: RelOpr, r: Expr) extends DyadicExpr(l, op, r)
 
   // TODO more
