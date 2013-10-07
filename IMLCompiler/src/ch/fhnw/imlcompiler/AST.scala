@@ -8,12 +8,18 @@ object AST {
   sealed class Cmd
   case class WhileCmd(expr: Expr, cmd: Cmd) extends Cmd
 
-  case class Expr(l: Term1, op: BoolOpr, r: Term1)
-  case class Term1(l: Term2, op: RelOpr, r: Term2)
-  case class Term2(l: Term3, op: AddOpr, r: Term3)
-  case class Term3(l: Factor, op: MultOpr, r: Factor)
 
-  sealed class Factor;
+  sealed class Expr
+  sealed class DyadicExpr(l: Expr, op: Opr, r: Expr) extends Expr
+  sealed class MonadicExpr(l: Expr, op: Opr) extends Expr
+
+  case class MultExpr(l: Expr, op: MultOpr, r: Expr) extends DyadicExpr(l, op, r)
+  case class AddExpr(l: Expr, op: AddOpr, r: Expr) extends DyadicExpr(l, op, r)
+  case class RelExpr(l: Expr, op: RelOpr, r: Expr) extends DyadicExpr(l, op, r)
+
+  // TODO more
+
+  sealed class Factor extends Expr;
   case class IntLiteral(v: Int) extends Factor
   case class BoolLiteral(v: Boolean) extends Factor
 
