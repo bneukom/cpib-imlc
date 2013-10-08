@@ -14,7 +14,7 @@ trait IMLParser extends RegexParsers {
   def addOpr: Parser[AddOpr] = "-" ^^^ { MinusOpr() } | "+" ^^^ { PlusOpr() }
 
   // TODO exclude keywords!!
-  def ident: Parser[Ident] = raw"[A-Za-z0-9]+".r ^^ { x => Ident(x.toString()) }
+  def ident: Parser[Ident] = raw"[A-Za-z0-9]+".r.withFailureMessage("identifier expceted") ^^ { x => Ident(x.toString()) }
 
   // literals
   def literal: Parser[Literal] = intLiteral | boolLiteral
@@ -35,6 +35,7 @@ trait IMLParser extends RegexParsers {
   def flowMode: Parser[FlowMode] = "in" ^^^ { In() } | "out" ^^^ { Out() } | "inout" ^^^ { InOut() }
   def changeMode: Parser[ChangeMode] = "var" ^^^ { Var() } | "const" ^^^ { Const() }
 
-  def globImpList: Parser[GlobImpList] = repsep(globImport, ",") ^^ { case g => GlobImpList(g)}
+  def globImpList: Parser[GlobImpList] = repsep(globImport, ",") ^^ { case g => GlobImpList(g) }
   def globImport: Parser[GlobImport] = flowMode ~ changeMode ~ ident ^^ { case f ~ c ~ i => GlobImport(f, c, i) }
+
 }
