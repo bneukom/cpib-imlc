@@ -24,15 +24,17 @@ class IMLParser extends RegexParsers with PackratParsers {
   // parser combinator order does matter (term1, term2, term3 from lederer -> operator precedence)
   // packrat parser because of left recursion
   // TODO packrat parser really needed?
+  
+  // http://www.ibm.com/developerworks/library/j-scala11218/index.html OP PRECEDENCE
   lazy val expr: PackratParser[Expr] = dyadicExpr | monadicExpr | parExpr | factor // identifier?
-  def dyadicExpr: Parser[DyadicExpr] = multExpr | addExpr | relExpr
-  def multExpr: Parser[MultExpr] = expr ~ multOpr ~ factor ^^ { case x1 ~ x2 ~ x3 => MultExpr(x1, x2, x3) }
-  def addExpr: Parser[DyadicExpr] = expr ~ addOpr ~ factor ^^ { case x1 ~ x2 ~ x3 => DyadicAddExpr(x1, x2, x3) }
+  def dyadicExpr: Parser[DyadicExpr] = relExpr | addExpr | multExpr
   def relExpr: Parser[RelExpr] = expr ~ relOpr ~ expr ^^ { case x1 ~ x2 ~ x3 => RelExpr(x1, x2, x3) }
+  def addExpr: Parser[DyadicExpr] = expr ~ addOpr ~ expr ^^ { case x1 ~ x2 ~ x3 => DyadicAddExpr(x1, x2, x3) }
+  def multExpr: Parser[MultExpr] = expr ~ multOpr ~ factor ^^ { case x1 ~ x2 ~ x3 => MultExpr(x1, x2, x3) }
   def monadicExpr: Parser[MonadicExpr] = monadicAddExpr;
   def monadicAddExpr: Parser[MonadicAddExpr] = addOpr ~ factor ^^ { case x1 ~ x2 => MonadicAddExpr(x1, x2) }
 
-  def apply(input: String): Program = parseAll(program, input) match {
+  def apply(input: String): Expr = parseAll(expr, input) match {
     case Success(result, _) => result
     case failure: NoSuccess => scala.sys.error(failure.msg)
   }
