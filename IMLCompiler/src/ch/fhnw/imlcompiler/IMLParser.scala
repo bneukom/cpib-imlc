@@ -36,16 +36,19 @@ trait IMLParser extends RegexParsers {
   def boolLiteral: Parser[BoolLiteral] = ("true" | "false") ^^ { x => BoolLiteral(x.toBoolean) }
 
   // expressions
-  def monadicExpr: Parser[MonadicExpr] = monadicAddExpr;
-  def monadicAddExpr: Parser[MonadicAddExpr] = addOpr ~ factor ^^ { case x1 ~ x2 => MonadicAddExpr(x1, x2) }
+  def monadicExpr: Parser[MonadicExpr] = monadicAddExpr | monadicNotExpr;
+  def monadicAddExpr: Parser[MonadicExpr] = addOpr ~ factor ^^ { case op ~ exp => MonadicExpr(exp, op) }
+  def monadicNotExpr: Parser[MonadicExpr] = "not" ~> factor ^^ { case exp => MonadicExpr(exp, Not()) }
 
-  def factor: Parser[Expr] = literal | ident | monadicExpr | "(" ~> expr <~ ")"
+  // TODO IDENT [tupleExpr| INIT] this should yield a funcall expr or StoreExpr (Ident Some None) ---> see AbsSyn_v1.pdf page 6
+  // TODO literal should not extend from factor -> create a LiteralExpr
+  def factor: Parser[Expr] = literal | ident | ident ~ tupleExpr <~ "init" ^^ { case i ~ r => InitFactor(i, r) } | monadicExpr | "(" ~> expr <~ ")"
 
   def expr: Parser[Expr] = term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) })
   def term1: Parser[Expr] = term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 }
   def term2: Parser[Expr] = term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) })
   def term3: Parser[Expr] = factor * (multOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) })
-  def tupleExpr: Parser[TupleExpr] = "(" ~ expr.* ~ ")" ^^ { case "(" ~ e ~ ")" => TupleExpr(e) }
+  def tupleExpr: Parser[TupleExpr] = "(" ~ repsep(expr, ",") ~ ")" ^^ { case "(" ~ e ~ ")" => TupleExpr(e) }
 
   def flowMode: Parser[FlowMode] = "in" ^^^ { In() } | "out" ^^^ { Out() } | "inout" ^^^ { InOut() }
   def changeMode: Parser[ChangeMode] = "var" ^^^ { Var() } | "const" ^^^ { Const() }
@@ -54,14 +57,14 @@ trait IMLParser extends RegexParsers {
   // decls
   def globImpList: Parser[GlobImpList] = repsep(globImport, ",") ^^ { case g => GlobImpList(g) }
   def globImport: Parser[GlobImport] = flowMode ~ changeMode ~ ident ^^ { case f ~ c ~ i => GlobImport(f, c, i) }
-  def decl: Parser[Decl] = changeMode ~ typedIdent ~ (funDecl | procDecl) ^^ { case c ~ i ~ f => Decl(c, i, f) }
   def cpsDecl: Parser[CpsDecl] = repsep(decl, ";") ^^ { case dl => CpsDecl(dl) }
+  def decl: Parser[Decl] = changeMode ~ typedIdent ~ (funDecl | procDecl) ^^ { case c ~ i ~ f => Decl(c, i, f) }
   def funDecl: Parser[FunDecl] = "fun" ~ ident ~ paramList ~ "returns" ~ opt(changeMode) ~ typedIdent ~ opt("global" ~> globImpList) ~ opt("local" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endfun" ^^ { case "fun" ~ i ~ p ~ "returns" ~ c ~ t ~ il ~ cdecl ~ "do" ~ dcps ~ "endfun" => FunDecl(i, p, c, t, il, cdecl, dcps) }
   def procDecl: Parser[ProcDecl] = "proc" ^^^ { ProcDecl() }
 
   // params
   def paramList: Parser[ParamList] = "(" ~ repsep(parameter, ",") ~ ")" ^^ { case "(" ~ p ~ ")" => ParamList(p) }
   def parameter: Parser[Parameter] = opt(flowMode) ~ opt(mechMode) ~ opt(changeMode) ~ typedIdent ^^ { case f ~ m ~ c ~ t => Parameter(f, m, c, t) }
-  def typedIdent: Parser[TypedIdent] = ident ~ ";" ~ atomtype ^^ { case i ~ ";" ~ t => TypedIdent(i, t) }
+  def typedIdent: Parser[TypedIdent] = ident ~ ":" ~ atomtype ^^ { case i ~ ":" ~ t => TypedIdent(i, t) }
 
 }

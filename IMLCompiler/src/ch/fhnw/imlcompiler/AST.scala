@@ -49,14 +49,13 @@ object AST {
   // expressions
   sealed class Expr
   case class DyadicExpr(l: Expr, op: Opr, r: Expr) extends Expr
-  sealed class MonadicExpr(l: Expr, op: Opr) extends Expr
+  case class MonadicExpr(l: Expr, op: Opr) extends Expr
 
   case class Ident(value: String) extends Expr
 
-  case class MonadicAddExpr(op: AddOpr, l: Expr) extends MonadicExpr(l, op)
-
   sealed class Factor extends Expr;
   sealed class Literal extends Factor;
+  case class InitFactor(i:Ident, e:TupleExpr) extends Factor;
   case class IntLiteral(v: Int) extends Literal
   case class BoolLiteral(v: Boolean) extends Literal
 
@@ -87,5 +86,7 @@ object AST {
   sealed class AddOpr extends Opr
   case class PlusOpr extends AddOpr
   case class MinusOpr extends AddOpr
+  
+  case class Not extends Opr
 
 }
