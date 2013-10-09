@@ -4,18 +4,31 @@ import scala.util.parsing.input.Positional
 import scala.collection.immutable.List
 
 object AST {
-  case class Program(cmd: Cmd)
+  case class Program(cpsDecl:Option[CpsDecl], cmd: CpsCmd)
 
-  sealed class Decl
-  case class FunDecl extends Decl
-  case class ProcDecl extends Decl
-  case class CpsDecl extends Decl
+  case class TypedIdent(i: Ident, t: Type)
+
+  case class Parameter(f: Option[FlowMode], m: Option[MechMode], c: Option[ChangeMode], t: TypedIdent)
+  case class ParamList(p: List[Parameter])
+
+  case class Decl(c: ChangeMode, i: TypedIdent, m: MethodDecl)
+  sealed class MethodDecl;
+  case class FunDecl(ident: Ident, params: ParamList, cm: Option[ChangeMode], retIdent: TypedIdent, importList: Option[GlobImpList], cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends MethodDecl
+  case class ProcDecl extends MethodDecl
+  case class CpsDecl(d: List[Decl])
 
   case class GlobImport(f: FlowMode, c: ChangeMode, i: Ident)
   case class GlobImpList(i: List[GlobImport])
 
   sealed class Cmd
-  case class WhileCmd(expr: Expr, cmd: Cmd) extends Cmd
+  case class BecomesCmd(lhs: Expr, rhs: Expr) extends Cmd
+  case class WhileCmd(expr: Expr, cmd: CpsCmd) extends Cmd
+  case class IfCmd(expr: Expr, ifCmd: CpsCmd, elseCmd: CpsCmd) extends Cmd
+  case class SkipCmd() extends Cmd
+  case class CallCmd(i: Ident, e: TupleExpr) extends Cmd
+  case class InputCmd(expr: Expr) extends Cmd
+  case class OutputCmd(expr: Expr) extends Cmd
+  case class CpsCmd(cl: List[Cmd])
 
   // modes
   sealed class FlowMode
@@ -23,9 +36,15 @@ object AST {
   case class Out extends FlowMode
   case class InOut extends FlowMode
 
+  sealed class MechMode
+  case class Ref extends MechMode
+  case class Copy extends MechMode
+
   sealed class ChangeMode
   case class Const extends ChangeMode
   case class Var extends ChangeMode
+
+  case class TupleExpr(l: List[Expr])
 
   // expressions
   sealed class Expr
@@ -40,6 +59,11 @@ object AST {
   sealed class Literal extends Factor;
   case class IntLiteral(v: Int) extends Literal
   case class BoolLiteral(v: Boolean) extends Literal
+
+  // type
+  sealed class Type
+  case class IntType extends Type
+  case class BoolType extends Type
 
   // operators
   sealed class Opr
