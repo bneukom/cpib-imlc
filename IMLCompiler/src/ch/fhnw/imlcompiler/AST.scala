@@ -4,17 +4,17 @@ import scala.util.parsing.input.Positional
 import scala.collection.immutable.List
 
 object AST {
-  case class Program(cpsDecl:Option[CpsDecl], cmd: CpsCmd)
+  case class Program(cpsDecl: Option[CpsDecl], cmd: CpsCmd)
 
   case class TypedIdent(i: Ident, t: Type)
 
   case class Parameter(f: Option[FlowMode], m: Option[MechMode], c: Option[ChangeMode], t: TypedIdent)
   case class ParamList(p: List[Parameter])
 
-  case class Decl(c: ChangeMode, i: TypedIdent, m: MethodDecl)
-  sealed class MethodDecl;
-  case class FunDecl(ident: Ident, params: ParamList, cm: Option[ChangeMode], retIdent: TypedIdent, importList: Option[GlobImpList], cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends MethodDecl
-  case class ProcDecl extends MethodDecl
+  sealed class Decl
+  case class VarDecl(c: ChangeMode, i: TypedIdent) extends Decl;
+  case class FunDecl(ident: Ident, params: ParamList, cm: Option[ChangeMode], retIdent: TypedIdent, importList: Option[GlobImpList], cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends Decl
+  case class ProcDecl(ident: Ident, params: ParamList, globImpList: Option[GlobImpList], cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends Decl
   case class CpsDecl(d: List[Decl])
 
   case class GlobImport(f: FlowMode, c: ChangeMode, i: Ident)
@@ -32,17 +32,17 @@ object AST {
 
   // modes
   sealed class FlowMode
-  case class In extends FlowMode
-  case class Out extends FlowMode
-  case class InOut extends FlowMode
+  case object In extends FlowMode
+  case object Out extends FlowMode
+  case object InOut extends FlowMode
 
   sealed class MechMode
-  case class Ref extends MechMode
-  case class Copy extends MechMode
+  case object Ref extends MechMode
+  case object Copy extends MechMode
 
   sealed class ChangeMode
-  case class Const extends ChangeMode
-  case class Var extends ChangeMode
+  case object Const extends ChangeMode
+  case object Var extends ChangeMode
 
   case class TupleExpr(l: List[Expr])
 
@@ -51,42 +51,44 @@ object AST {
   case class DyadicExpr(l: Expr, op: Opr, r: Expr) extends Expr
   case class MonadicExpr(l: Expr, op: Opr) extends Expr
 
-  case class Ident(value: String) extends Expr
+  case class Ident(value: String)
+  case class FunCallExpr(i: Ident, e: TupleExpr) extends Expr;
+  case class StoreExpr(i: Ident, isInitialization: Boolean) extends Expr;
+  case class LiteralExpr(l: Literal) extends Expr;
 
-  sealed class Factor extends Expr;
+  sealed class Factor;
   sealed class Literal extends Factor;
-  case class InitFactor(i:Ident, e:TupleExpr) extends Factor;
   case class IntLiteral(v: Int) extends Literal
   case class BoolLiteral(v: Boolean) extends Literal
 
   // type
   sealed class Type
-  case class IntType extends Type
-  case class BoolType extends Type
+  case object IntType extends Type
+  case object BoolType extends Type
 
   // operators
   sealed class Opr
   sealed class RelOpr extends Opr;
-  case class EQ extends RelOpr;
-  case class NE extends RelOpr;
-  case class GT extends RelOpr;
-  case class LT extends RelOpr;
-  case class GE extends RelOpr;
-  case class LE extends RelOpr;
+  case object EQ extends RelOpr;
+  case object NE extends RelOpr;
+  case object GT extends RelOpr;
+  case object LT extends RelOpr;
+  case object GE extends RelOpr;
+  case object LE extends RelOpr;
 
   sealed class BoolOpr extends Opr;
-  case class Cand extends BoolOpr;
-  case class Cor extends BoolOpr;
+  case object Cand extends BoolOpr;
+  case object Cor extends BoolOpr;
 
   sealed class MultOpr extends Opr
-  case class DivOpr extends MultOpr
-  case class TimesOpr extends MultOpr
-  case class ModOpr extends MultOpr
+  case object DivOpr extends MultOpr
+  case object TimesOpr extends MultOpr
+  case object ModOpr extends MultOpr
 
   sealed class AddOpr extends Opr
-  case class PlusOpr extends AddOpr
-  case class MinusOpr extends AddOpr
-  
-  case class Not extends Opr
+  case object PlusOpr extends AddOpr
+  case object MinusOpr extends AddOpr
+
+  case object Not extends Opr
 
 }
