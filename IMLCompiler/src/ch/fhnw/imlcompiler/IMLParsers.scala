@@ -42,13 +42,13 @@ trait IMLParsers extends RegexParsers {
   def monadicNotExpr: Parser[MonadicExpr] = "not" ~> factor ^^ { case exp => MonadicExpr(exp, Not) }
 
   // TODO Store Expr probably wrong?
-  def factor: Parser[Expr] = literal ^^ { LiteralExpr(_) } |  ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } |  monadicExpr | "(" ~> expr <~ ")"
+  def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | "(" ~> expr <~ ")")
 
-  def expr: Parser[Expr] = term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) })
-  def term1: Parser[Expr] = term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 }
-  def term2: Parser[Expr] = term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) })
-  def term3: Parser[Expr] = factor * (multOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) })
-  def tupleExpr: Parser[TupleExpr] = "(" ~ repsep(expr, ",") ~ ")" ^^ { case "(" ~ e ~ ")" => TupleExpr(e) }
+  def expr: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
+  def term1: Parser[Expr] = positioned(term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 })
+  def term2: Parser[Expr] = positioned(term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
+  def term3: Parser[Expr] = positioned(factor * (multOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
+  def tupleExpr: Parser[TupleExpr] = positioned("(" ~ repsep(expr, ",") ~ ")" ^^ { case "(" ~ e ~ ")" => TupleExpr(e) })
 
   def flowMode: Parser[FlowMode] = "in" ^^^ { In } | "out" ^^^ { Out } | "inout" ^^^ { InOut }
   def changeMode: Parser[ChangeMode] = "var" ^^^ { Var } | "const" ^^^ { Const }
@@ -68,4 +68,12 @@ trait IMLParsers extends RegexParsers {
   def parameter: Parser[Parameter] = opt(flowMode) ~ opt(mechMode) ~ opt(changeMode) ~ typedIdent ^^ { case f ~ m ~ c ~ t => Parameter(f, m, c, t) }
   def typedIdent: Parser[TypedIdent] = ident ~ ":" ~ atomtype ^^ { case i ~ ":" ~ t => TypedIdent(i, t) }
 
+  case class ParseException(n: String) extends CompilerException(n)
+
+  def parse(i: String): Expr = {
+    parseAll(expr, i) match {
+      case Success(result: Expr, _) => return result
+      case failure: NoSuccess => throw ParseException("Parser Error at " + failure.next.pos.line + ":" + failure.next.pos.column + "\n" + failure.next.pos.longString + "\nMsg: " + failure.msg) // "at " + n.pos.line + ":" + n.pos.column + "\n" + n.pos.longString + 
+    }
+  }
 }
