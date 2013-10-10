@@ -57,7 +57,7 @@ object AST {
   case class LiteralExpr(l: Literal) extends Expr;
 
   sealed class Factor;
-  sealed class Literal extends Factor;
+  abstract sealed class Literal extends Factor;
   case class IntLiteral(v: Int) extends Literal
   case class BoolLiteral(v: Boolean) extends Literal
 

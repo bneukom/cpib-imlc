@@ -5,7 +5,7 @@ import ch.fhnw.imlcompiler.AST._
 import scala.text._
 import Document._
 
-object Test extends IMLParsers {
+object Compiler extends IMLParsers with ContextChecker {
 
   def main(args: Array[String]) {
     //    val p = "program a while x + 1 > (y*3)+42 do endwhile endprogram";
