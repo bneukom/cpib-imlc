@@ -52,7 +52,7 @@ object AST {
   case class TupleExpr(l: List[Expr]) extends ASTNode
 
   // expressions
-  sealed class Expr extends ASTNode
+  sealed abstract class Expr extends ASTNode
   case class DyadicExpr(l: Expr, op: Opr, r: Expr) extends Expr
   case class MonadicExpr(l: Expr, op: Opr) extends Expr
 
@@ -86,13 +86,13 @@ object AST {
   case object Cor extends BoolOpr;
 
   abstract sealed class MultOpr extends Opr
-  case object DivOpr extends MultOpr
-  case object TimesOpr extends MultOpr
-  case object ModOpr extends MultOpr
+  case object DivOpr extends MultOpr { override def toString() = "div" }
+  case object TimesOpr extends MultOpr { override def toString() = "times" }
+  case object ModOpr extends MultOpr { override def toString() = "mod" }
 
   abstract sealed class AddOpr extends Opr
-  case object PlusOpr extends AddOpr
-  case object MinusOpr extends AddOpr
+  case object PlusOpr extends AddOpr { override def toString() = "plus" }
+  case object MinusOpr extends AddOpr { override def toString() = "minus" }
 
   case object Not extends Opr
 

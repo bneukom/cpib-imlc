@@ -9,11 +9,15 @@ import ch.fhnw.imlcompiler.AST._
 // TODO into single context checker which returns context used by code generator?
 trait ContextCheckers {
 
-  case class DuplicateIdentException(ident: Ident) extends CompilerException("Duplicate decleration of " + ident + " at " + ident.pos.line + ":" + ident.pos.column + "\n" + ident.pos.longString + "\nAST: " + ident)
-  case class InvalidDeclException(decl: Decl) extends CompilerException("Invalid decleration of " + decl + " at " + decl.pos.line + ":" + decl.pos.column + "\n" + decl.pos.longString + "\nAST: " + decl)
-  case class TypeErrorException(n: ASTNode, epxected: Type) extends CompilerException("Type " + epxected + " expected at " + n.pos.line + ":" + n.pos.column + "\n" + n.pos.longString + "\nAST: " + n)
-  case class IncompatibleTypeException(n: ASTNode) extends CompilerException("Incompatible types at " + n.pos.line + ":" + n.pos.column + "\n" + n.pos.longString + "\nAST: " + n)
-  case class UndefinedVariableException(n: Ident) extends CompilerException("Undefined variable '" + n.value + "' used at " + n.pos.line + ":" + n.pos.column + "\n" + n.pos.longString + "\nAST: " + n);
+  case class DuplicateIdentException(ident: Ident) extends CompilerException("(" + ident.pos.line + ":" + ident.pos.column + ") '" + ident.value + "' is already defined\n\n" + ident.pos.longString + "\nAST: " + ident)
+  case class InvalidDeclException(decl: Decl) extends CompilerException("(" + decl.pos.line + ":" + decl.pos.column + ") " + decl.pos.longString + "invalid decleration of " + decl + "\n\nAST: " + decl)
+  case class TypeErrorException(n: ASTNode, expected: Type, opr:Opr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") type " + expected + " expected for operator " + opr + "\n\n" + n.pos.longString + "\nAST: " + n)
+  case class IncompatibleTypeException(n: ASTNode) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") incompatible types a\n" + n.pos.longString + "\nAST: " + n)
+  case class UndefinedVariableException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined variable '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
+  case class UndefinedMethodException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined method '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
+  case class ProcReturnException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") proc method '" + n.value + "' do not have return types\n\n" + n.pos.longString + "\nAST: " + n);
+  case class InvalidParamaterAmount(n: TupleExpr, required: Int, actual: Int) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid amount of parameters " + actual +  " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
+  case class InvalidParamater(n: Expr, required: Type, actual: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid parameter type '" + actual + "' required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
 
   // TODO how to make a nice call chain with these case classes?
   abstract sealed class ContextResult
@@ -25,21 +29,28 @@ trait ContextCheckers {
   // TODO initialized state of variables must be stored
   case class GlobalVarScope(decls: MutableList[TypedIdent])
   case class LocalVarScopes(scopes: HashMap[Ident, MutableList[TypedIdent]]) // includes global imports
-  case class GlobalMethodScope(decls: MutableList[Ident])
+  case class GlobalMethodScope(decls: HashMap[Ident, Decl]) // TODO decl needed!
 
   private val globalVarScope: GlobalVarScope = GlobalVarScope(new MutableList());
   private val localVarScope: LocalVarScopes = LocalVarScopes(new HashMap());
-  private val globalMethodScope: GlobalMethodScope = GlobalMethodScope(new MutableList());
+  private val globalMethodScope: GlobalMethodScope = GlobalMethodScope(new HashMap());
 
   def check(prog: Program) {
-    // load global decls
-    globalCpsDecl(prog.cpsDecl);
+    // load global declarations first (so we don't need any forward declarations)
+    loadGlobalCpsDecl(prog.cpsDecl);
+
+    println("Scope loaded: ")
+    println(globalVarScope)
+    println(localVarScope)
+    println(globalMethodScope)
+    println()
+
+    // check all defined methods for possible errors
+    checkMethods(prog.cpsDecl);
 
     // check the main of the program
     checkCpsCmd(prog.cmd, globalVarScope.decls);
 
-    println(globalVarScope)
-    println(globalMethodScope)
   }
 
   def getType(l: Literal): Type = {
@@ -70,7 +81,17 @@ trait ContextCheckers {
           case Some(typedIdent) => typedIdent.t;
         }
       }
-      // TODO implement other expressions
+      case FunCallExpr(i, _) => {
+        globalMethodScope.decls.find(x => x == i) match {
+          case None => throw UndefinedMethodException(i)
+          case Some(m) => {
+            m._2 match {
+              case FunDecl(_, _, _, r, _, _, _) => r.t
+              case _ => throw ProcReturnException(i)
+            }
+          }
+        }
+      }
     }
   }
 
@@ -87,10 +108,10 @@ trait ContextCheckers {
     e match {
       case DyadicExpr(lhs, opr, rhs) =>
         checkExpr(lhs, scope); checkExpr(rhs, scope);
-        if (returnType(lhs, scope) != expectedOperandType(opr) || returnType(rhs, scope) != expectedOperandType(opr)) throw TypeErrorException(e, expectedOperandType(opr))
+        if (returnType(lhs, scope) != expectedOperandType(opr) || returnType(rhs, scope) != expectedOperandType(opr)) throw TypeErrorException(e, expectedOperandType(opr), opr)
       case MonadicExpr(lhs, opr) =>
         checkExpr(lhs, scope);
-        if (returnType(lhs, scope) != expectedOperandType(opr)) throw TypeErrorException(e, expectedOperandType(opr))
+        if (returnType(lhs, scope) != expectedOperandType(opr)) throw TypeErrorException(e, expectedOperandType(opr), opr)
       case LiteralExpr(_) => {}
       case FunCallExpr(_, el) => {} // TODO type of every expression must be compatible with target type from function and also expression must not have type errors
       case StoreExpr(i, _) => {} // TODO lowest level nothing more to check here?
@@ -98,7 +119,6 @@ trait ContextCheckers {
   }
 
   def checkCpsCmd(cpsCmd: CpsCmd, scope: MutableList[TypedIdent]) = cpsCmd.cl.foreach(cmd => checkCmd(cmd, scope))
-
   def checkCmd(cmd: Cmd, scope: MutableList[TypedIdent]) {
     cmd match {
       case BecomesCmd(lhs, rhs) => {
@@ -106,42 +126,81 @@ trait ContextCheckers {
         if (returnType(lhs, scope) != returnType(rhs, scope)) throw IncompatibleTypeException(cmd)
       }
       case SkipCmd() => {}
-      // TODO implement others
+      case CallCmd(i, t) => {
+        globalMethodScope.decls.get(i) match {
+          case None => throw UndefinedMethodException(i)
+          case Some(decl) => {
+            checkTupleArgs(decl, t, scope);
+          }
+        }
+      }
+
+      // TODO implement more
     }
   }
 
-  def globalCpsDecl(cpsDecl: Option[CpsDecl]) = cpsDecl.foreach(x => x.declList.foreach(decl => globalDecl(decl)))
+  def checkTupleArgs(decl: Decl, tupleExpr: TupleExpr, scope: MutableList[TypedIdent]) {
+    // check if types of passed values matches with the proc/fun
+    decl match {
+      case VarDecl(_, i) => throw new CompilerException(i.i + " is not a proc or fun");
+      case FunDecl(identifier, params, _, _, imports, cpsDecl, cmd) => checkMethodTupleArgs(tupleExpr, params, scope)
+      case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkMethodTupleArgs(tupleExpr, params, scope)
+    }
+  }
 
-  def globalDecl(decl: Decl) {
+  def checkMethodTupleArgs(tupleExpr: TupleExpr, params: ParamList, scope: MutableList[TypedIdent]) {
+    if (tupleExpr.l.size != params.p.size) throw InvalidParamaterAmount(tupleExpr, params.p.size, tupleExpr.l.size);
+
+    val o = tupleExpr.l.zip(params.p);
+    o.foreach(element => {
+      val exprReturnType = returnType(element._1, scope);
+      if (exprReturnType != element._2.t.t) throw InvalidParamater(element._1, element._2.t.t, exprReturnType)
+      checkExpr(element._1, scope)
+    })
+  }
+
+  def loadGlobalCpsDecl(cpsDecl: Option[CpsDecl]) = cpsDecl.foreach(x => x.declList.foreach(decl => loadGlobalDecl(decl)))
+  def loadGlobalDecl(decl: Decl) {
     decl match {
       case VarDecl(_, i) => globalVarScope.decls += i;
-      case FunDecl(identifier, params, _, _, imports, cpsDecl, cmd) => methodDecl(identifier, cpsDecl, params, cmd);
-      case ProcDecl(identifier, params, imports, cpsDecl, cmd) => methodDecl(identifier, cpsDecl, params, cmd);
+      case FunDecl(identifier, params, _, _, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, cmd);
+      case ProcDecl(identifier, params, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, cmd);
 
     }
   }
 
-  def methodDecl(identifier: Ident, cpsDecl: Option[CpsDecl], paramList: ParamList, cpsCmd: CpsCmd) {
-    globalMethodScope.decls += identifier
-    localCpsDecl(identifier, cpsDecl)
-    paramDecl(identifier, paramList)
-    checkCpsCmd(cpsCmd, localVarScope.scopes.getOrElse(identifier, new MutableList()));
+  def checkMethods(cpsDecl: Option[CpsDecl]) = cpsDecl.foreach(x => x.declList.foreach(decl => checkMethod(decl)))
+  def checkMethod(decl: Decl) {
+    decl match {
+      case FunDecl(identifier, params, _, _, imports, cpsDecl, cmd) => checkCpsCmd(cmd, localVarScope.scopes.getOrElse(identifier, new MutableList()));
+      case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkCpsCmd(cmd, localVarScope.scopes.getOrElse(identifier, new MutableList()));
+      case VarDecl(_, i) =>
+
+    }
   }
 
-  def paramDecl(ident: Ident, params: ParamList) {
+  def loadMethodDecl(identifier: Ident, methodDecl: Decl, cpsDecl: Option[CpsDecl], paramList: ParamList, cpsCmd: CpsCmd) {
+    if (globalMethodScope.decls.contains(identifier)) throw new DuplicateIdentException(identifier)
+
+    globalMethodScope.decls += (identifier -> methodDecl)
+    loadLocalCpsDecl(identifier, cpsDecl)
+    loadParamDecl(identifier, paramList)
+  }
+
+  def loadParamDecl(ident: Ident, params: ParamList) {
     params.p.foreach(param => {
       localVarScope.scopes.get(ident) match {
         case None => localVarScope.scopes.put(ident, new MutableList[TypedIdent]() += param.t)
-        case Some(x) => if (!x.contains(param.t)) x += param.t else throw new DuplicateIdentException(param.t.i)
+        case Some(x) => if (x.find(ti => ti.i == param.t.i).isEmpty) x += param.t else throw new DuplicateIdentException(param.t.i)
       }
     })
   }
 
-  def localCpsDecl(ident: Ident, cpsDecl: Option[CpsDecl]) = {
-    cpsDecl.foreach(x => x.declList.foreach(decl => localDecl(ident, decl)))
+  def loadLocalCpsDecl(ident: Ident, cpsDecl: Option[CpsDecl]) = {
+    cpsDecl.foreach(x => x.declList.foreach(decl => loadLocalDecl(ident, decl)))
   }
 
-  def localDecl(ident: Ident, decl: Decl) {
+  def loadLocalDecl(ident: Ident, decl: Decl) {
     decl match {
       case VarDecl(_, i) => {
         localVarScope.scopes.get(ident) match {

@@ -24,8 +24,8 @@ trait IMLParsers extends RegexParsers {
 
   // operators
   def multOpr: Parser[MultOpr] = "*" ^^^ { TimesOpr } | "div" ^^^ { DivOpr } | "mod" ^^^ { ModOpr }
-  def boolOpr: Parser[BoolOpr] = "cand" ^^^ { Cand } | "cor" ^^^ { Cor }
-  def relOpr: Parser[RelOpr] = "==" ^^^ { EQ } | "!=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT }
+  def boolOpr: Parser[BoolOpr] = "&&" ^^^ { Cand } | "||" ^^^ { Cor }
+  def relOpr: Parser[RelOpr] = "==" ^^^ { EQ } | "/=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT }
   def addOpr: Parser[AddOpr] = "-" ^^^ { MinusOpr } | "+" ^^^ { PlusOpr }
 
   // TODO exclude keywords!!
@@ -74,7 +74,7 @@ trait IMLParsers extends RegexParsers {
   def parse(i: String): Program = {
     parseAll(program, i) match {
       case Success(result: Program, _) => return result
-      case failure: NoSuccess => throw ParseException("Parser Error at " + failure.next.pos.line + ":" + failure.next.pos.column + "\n" + failure.next.pos.longString + "\nMsg: " + failure.msg) // "at " + n.pos.line + ":" + n.pos.column + "\n" + n.pos.longString + 
+      case failure: NoSuccess => throw ParseException("Parser Error at " + failure.next.pos.line + ":" + failure.next.pos.column + "\n" + failure.next.pos.longString + "\nMessage: " + failure.msg) // "at " + n.pos.line + ":" + n.pos.column + "\n" + n.pos.longString + 
     }
   }
 }

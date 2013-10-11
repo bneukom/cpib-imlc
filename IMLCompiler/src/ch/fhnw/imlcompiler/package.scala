@@ -7,11 +7,17 @@ import reflect.runtime.universe._
 import reflect.runtime.currentMirror
 import collection.GenTraversableOnce
 import collection.immutable.Queue
+import ch.fhnw.imlcompiler.AST.ASTNode
+
+class CompilerException(v:String) extends RuntimeException(v) {
+  def this(n:ASTNode) = this(n.pos.longString)
+}
 
 object OrderedMap {
   def apply[A, B](elems: (A, B)*) =
     new OrderedMap(Map(elems: _*), Queue(elems.map(_._1): _*))
 }
+
 /**
  * An ordered map implementation that should perform effectively on all operations except
  * removal, where it performs linearly.

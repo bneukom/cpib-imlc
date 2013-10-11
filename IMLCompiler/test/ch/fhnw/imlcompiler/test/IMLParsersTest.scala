@@ -1,6 +1,7 @@
-package ch.fhnw.imlcompiler
+package ch.fhnw.imlcompiler.test
 
 import ch.fhnw.imlcompiler.AST._
+import ch.fhnw.imlcompiler.IMLParsers
 
 object IMLParsersTest extends IMLParsers {
   def main(args: Array[String]) {

@@ -17,11 +17,11 @@ object Compiler extends IMLParsers with ContextCheckers {
     //	  val expression = "3 * 3 + 4 * (6 > 7)";
 
     try {
-      val prog = "program test global proc _test(in copy m:int, out copy a:int) do m:=m+m endproc; var x:int do skip endprogram"
+      //      val prog = "program test global proc test(in copy m:bool, out copy m:int, y:int, z:int) do m:=3 * x + 4 > y && z > 10 endproc; var x:int; proc test2(in copy m:int, out copy a:int) do m:=m div (m * (a + 1)) endproc do skip endprogram"
+      val prog = "program test global proc test(in copy m:int, in copy a:bool, x:int, z:int) do call test(3 + 3 * 3,true,3, 3) endproc do skip endprogram"
 
       // parse
       val parseResult = parse(prog)
-
       println("Parse Successful:")
       println(parseResult.treeString)
       println()
