@@ -5,13 +5,12 @@ import scala.collection.mutable.MutableList
 import ch.fhnw.imlcompiler.AST._
 
 // TODO do not use exceptions but rather a CheckResult which is either a CheckError or a IMLContext (which is then used by the code generator)
-// TODO merge with scope checker (and other checkers too)?
-// TODO into single context checker which returns context used by code generator?
+// TODO check if last statement of fun matches return type!
 trait ContextCheckers {
 
   case class DuplicateIdentException(ident: Ident) extends CompilerException("(" + ident.pos.line + ":" + ident.pos.column + ") '" + ident.value + "' is already defined\n\n" + ident.pos.longString + "\nAST: " + ident)
   case class InvalidDeclException(decl: Decl) extends CompilerException("(" + decl.pos.line + ":" + decl.pos.column + ") " + decl.pos.longString + "invalid decleration of " + decl + "\n\nAST: " + decl)
-  case class TypeErrorException(n: ASTNode, expected: Type, opr:Opr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") type " + expected + " expected for operator " + opr + "\n\n" + n.pos.longString + "\nAST: " + n)
+  case class TypeErrorException(n: ASTNode, expected: Type, opr:Opr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") type " + expected + " expected for operator '" + opr + "'\n\n" + n.pos.longString + "\nAST: " + n)
   case class IncompatibleTypeException(n: ASTNode) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") incompatible types a\n" + n.pos.longString + "\nAST: " + n)
   case class UndefinedVariableException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined variable '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class UndefinedMethodException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined method '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
@@ -20,12 +19,8 @@ trait ContextCheckers {
   case class InvalidParamater(n: Expr, required: Type, actual: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid parameter type '" + actual + "' required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
 
   // TODO how to make a nice call chain with these case classes?
-  abstract sealed class ContextResult
-  case class ContextFailure
   case class Context()
 
-  // TODO global fun/procs and variables
-  // TODO local variables
   // TODO initialized state of variables must be stored
   case class GlobalVarScope(decls: MutableList[TypedIdent])
   case class LocalVarScopes(scopes: HashMap[Ident, MutableList[TypedIdent]]) // includes global imports
@@ -35,7 +30,7 @@ trait ContextCheckers {
   private val localVarScope: LocalVarScopes = LocalVarScopes(new HashMap());
   private val globalMethodScope: GlobalMethodScope = GlobalMethodScope(new HashMap());
 
-  def check(prog: Program) {
+  def check(prog: Program): Context = {
     // load global declarations first (so we don't need any forward declarations)
     loadGlobalCpsDecl(prog.cpsDecl);
 
@@ -50,7 +45,8 @@ trait ContextCheckers {
 
     // check the main of the program
     checkCpsCmd(prog.cmd, globalVarScope.decls);
-
+    
+    return Context()
   }
 
   def getType(l: Literal): Type = {

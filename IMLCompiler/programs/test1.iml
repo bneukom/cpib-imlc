@@ -1,0 +1,11 @@
+program test global 
+ proc test(in copy a:int, in copy b:bool, x:int, z:int) do 
+  call test(41 * 3, true,3, 3); 
+  call test2(true && 3 > 4, 4) 
+ endproc; 
+  proc test2(a:bool) do 
+   skip 
+  endproc 
+do 
+ skip 
+endprogram
