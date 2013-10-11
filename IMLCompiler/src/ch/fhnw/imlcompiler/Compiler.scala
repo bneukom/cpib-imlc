@@ -14,24 +14,24 @@ object Compiler extends IMLParsers with ContextCheckers {
     //    println(p.apply(s))
     //    val intDivProg = "program intDiv global proc divide(in copy m:int, in copy n:int, out ref q:int, out ref r:int) do q init:= 0; r init:= m; while r >= n do q := q + 1; r := r - n endwhile endproc; var m:int; var n:int; var q:int; var r:int do input m init; input n init; call divide(m, n, q init, r init); output q; output r endprogram";
     //    val cpsDeclTest = "const l:int fun oink(out ref var i:int) returns l:int do i:=(i*3) mod 2 div 3 endfun";
+    //	  val expression = "3 * 3 + 4 * (6 > 7)";
 
     try {
-      val expression = "3 * 3 + 4 * (6 > 7)";
+      val prog = "program test global proc _test(in copy m:int, out copy a:int) do m:=m+m endproc; var x:int do skip endprogram"
 
       // parse
-      val parseResult = parse(expression)
+      val parseResult = parse(prog)
 
       println("Parse Successful:")
       println(parseResult.treeString)
       println()
 
       // context check
-      TypeChecker.checkExpr(parseResult);
+      check(parseResult);
 
       // interpret
     } catch {
       case e: ParseException => System.err.println(e.getMessage)
-      case e: TypeCheckerException => System.err.println(e.getMessage)
       case e: CompilerException => System.err.println(e.getMessage)
     }
 

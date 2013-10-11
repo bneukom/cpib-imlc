@@ -15,10 +15,11 @@ object AST {
   case class Parameter(f: Option[FlowMode], m: Option[MechMode], c: Option[ChangeMode], t: TypedIdent) extends ASTNode
   case class ParamList(p: List[Parameter]) extends ASTNode
 
-  sealed class Decl extends ASTNode
+  sealed abstract class Decl extends ASTNode
   case class VarDecl(c: ChangeMode, i: TypedIdent) extends Decl;
   case class FunDecl(ident: Ident, params: ParamList, cm: Option[ChangeMode], retIdent: TypedIdent, importList: Option[GlobImpList], cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends Decl
   case class ProcDecl(ident: Ident, params: ParamList, globImpList: Option[GlobImpList], cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends Decl
+
   case class CpsDecl(declList: List[Decl])
 
   case class GlobImport(f: FlowMode, c: ChangeMode, i: Ident) extends ASTNode
