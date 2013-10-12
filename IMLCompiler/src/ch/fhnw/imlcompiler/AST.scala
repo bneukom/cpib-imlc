@@ -25,7 +25,7 @@ object AST {
   case class GlobImport(f: FlowMode, c: ChangeMode, i: Ident) extends ASTNode
   case class GlobImpList(i: List[GlobImport]) extends ASTNode
 
-  sealed class Cmd extends ASTNode
+  sealed abstract class Cmd extends ASTNode
   case class BecomesCmd(lhs: Expr, rhs: Expr) extends Cmd
   case class WhileCmd(expr: Expr, cmd: CpsCmd) extends Cmd
   case class IfCmd(expr: Expr, ifCmd: CpsCmd, elseCmd: CpsCmd) extends Cmd

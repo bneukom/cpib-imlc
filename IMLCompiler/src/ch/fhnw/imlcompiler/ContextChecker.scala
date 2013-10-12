@@ -5,26 +5,24 @@ import scala.collection.mutable.MutableList
 import ch.fhnw.imlcompiler.AST._
 
 // TODO do not use exceptions but rather a CheckResult which is either a CheckError or a IMLContext (which is then used by the code generator)
-// TODO check if last statement of fun matches return type!
 trait ContextCheckers {
 
   case class DuplicateIdentException(ident: Ident) extends CompilerException("(" + ident.pos.line + ":" + ident.pos.column + ") '" + ident.value + "' is already defined\n\n" + ident.pos.longString + "\nAST: " + ident)
   case class InvalidDeclException(decl: Decl) extends CompilerException("(" + decl.pos.line + ":" + decl.pos.column + ") " + decl.pos.longString + "invalid decleration of " + decl + "\n\nAST: " + decl)
-  case class TypeErrorException(n: ASTNode, expected: Type, opr:Opr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") type " + expected + " expected for operator '" + opr + "'\n\n" + n.pos.longString + "\nAST: " + n)
-  case class IncompatibleTypeException(n: ASTNode) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") incompatible types a\n" + n.pos.longString + "\nAST: " + n)
+  case class OperandTypeErrorException(n: ASTNode, expected: Type, opr: Opr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") wrong operand for operator: " + opr + " required: " + expected + "\n\n" + n.pos.longString + "\nAST: " + n)
+  case class TypeMismatchError(n: ASTNode, required: Type, found: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") type mismatch; found: " + found + " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n)
   case class UndefinedVariableException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined variable '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class UndefinedMethodException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined method '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class ProcReturnException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") proc method '" + n.value + "' do not have return types\n\n" + n.pos.longString + "\nAST: " + n);
-  case class InvalidParamaterAmount(n: TupleExpr, required: Int, actual: Int) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid amount of parameters " + actual +  " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
+  case class InvalidParamaterAmount(n: TupleExpr, required: Int, actual: Int) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid amount of parameters " + actual + " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class InvalidParamater(n: Expr, required: Type, actual: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid parameter type '" + actual + "' required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
 
-  // TODO how to make a nice call chain with these case classes?
-  case class Context()
+  case class Context(globalVarScope: GlobalVarScope, localVarScope: LocalVarScopes, globalMethodScope: GlobalMethodScope)
 
   // TODO initialized state of variables must be stored
   case class GlobalVarScope(decls: MutableList[TypedIdent])
   case class LocalVarScopes(scopes: HashMap[Ident, MutableList[TypedIdent]]) // includes global imports
-  case class GlobalMethodScope(decls: HashMap[Ident, Decl]) // TODO decl needed!
+  case class GlobalMethodScope(decls: HashMap[Ident, Decl])
 
   private val globalVarScope: GlobalVarScope = GlobalVarScope(new MutableList());
   private val localVarScope: LocalVarScopes = LocalVarScopes(new HashMap());
@@ -40,13 +38,13 @@ trait ContextCheckers {
     println(globalMethodScope)
     println()
 
-    // check all defined methods for possible errors
+    // check all defined methods for possible errors (type, flow, etc.)
     checkMethods(prog.cpsDecl);
 
     // check the main of the program
     checkCpsCmd(prog.cmd, globalVarScope.decls);
-    
-    return Context()
+
+    return Context(globalVarScope, localVarScope, globalMethodScope)
   }
 
   def getType(l: Literal): Type = {
@@ -104,10 +102,10 @@ trait ContextCheckers {
     e match {
       case DyadicExpr(lhs, opr, rhs) =>
         checkExpr(lhs, scope); checkExpr(rhs, scope);
-        if (returnType(lhs, scope) != expectedOperandType(opr) || returnType(rhs, scope) != expectedOperandType(opr)) throw TypeErrorException(e, expectedOperandType(opr), opr)
+        if (returnType(lhs, scope) != expectedOperandType(opr) || returnType(rhs, scope) != expectedOperandType(opr)) throw OperandTypeErrorException(e, expectedOperandType(opr), opr)
       case MonadicExpr(lhs, opr) =>
         checkExpr(lhs, scope);
-        if (returnType(lhs, scope) != expectedOperandType(opr)) throw TypeErrorException(e, expectedOperandType(opr), opr)
+        if (returnType(lhs, scope) != expectedOperandType(opr)) throw OperandTypeErrorException(e, expectedOperandType(opr), opr)
       case LiteralExpr(_) => {}
       case FunCallExpr(_, el) => {} // TODO type of every expression must be compatible with target type from function and also expression must not have type errors
       case StoreExpr(i, _) => {} // TODO lowest level nothing more to check here?
@@ -119,7 +117,7 @@ trait ContextCheckers {
     cmd match {
       case BecomesCmd(lhs, rhs) => {
         checkExpr(lhs, scope); checkExpr(rhs, scope);
-        if (returnType(lhs, scope) != returnType(rhs, scope)) throw IncompatibleTypeException(cmd)
+        if (returnType(lhs, scope) != returnType(rhs, scope)) throw TypeMismatchError(cmd, returnType(lhs, scope), returnType(rhs, scope))
       }
       case SkipCmd() => {}
       case CallCmd(i, t) => {
@@ -130,8 +128,13 @@ trait ContextCheckers {
           }
         }
       }
+      case IfCmd(e, ifcmd, elsecmd) =>
+        if (returnType(e, scope) != BoolType) throw TypeMismatchError(cmd, BoolType, returnType(e, scope)); checkExpr(e, scope); checkCpsCmd(ifcmd, scope); checkCpsCmd(elsecmd, scope)
+      case WhileCmd(e, cmd) =>
+        if (returnType(e, scope) != BoolType) throw TypeMismatchError(cmd, BoolType, returnType(e, scope)); checkExpr(e, scope); checkCpsCmd(cmd, scope);
+      case InputCmd(e) => // TODO implement
+      case OutputCmd(e) => // TODO implement
 
-      // TODO implement more
     }
   }
 
