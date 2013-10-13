@@ -21,6 +21,7 @@ trait ContextCheckers {
   case class StoreNotInitialized(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") store: '" + n.value + "' has not been initialized\n\n" + n.pos.longString + "\nAST: " + n);
   case class InvalidLValue(n: Expr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") expression: '" + n + "' is not a valid lvalue\n\n" + n.pos.longString + "\nAST: " + n);
   case class ConstModification(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") identifier '" + n.value + "' is const and can not be modified\n\n" + n.pos.longString + "\nAST: " + n);
+  case class InStoreInitialization(n: Ident, f: FlowMode) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing " + f.toString().toLowerCase() + " mode store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
 
   case class Context(globalVarScope: GlobalStoreScope, localVarScope: LocalStoreScopes, globalMethodScope: GlobalMethodScope)
 
@@ -39,6 +40,7 @@ trait ContextCheckers {
   def check(prog: Program): Context = {
     // load global declarations first (so we don't need any forward declarations)
     loadGlobalCpsDecl(prog.cpsDecl);
+    loadProgParamDecl(prog.params);
 
     println("Scope loaded: ")
     println(globalStoreScope)
@@ -47,7 +49,7 @@ trait ContextCheckers {
     println()
 
     // check all defined methods for possible errors (type, flow, initialized, etc.)
-    //    checkMethods(prog.cpsDecl);
+    checkMethods(prog.cpsDecl);
 
     // check the main of the program for the same errors
     checkCpsCmd(prog.cmd, globalStoreScope.scope);
@@ -88,7 +90,7 @@ trait ContextCheckers {
           case None => throw UndefinedMethodException(i)
           case Some(m) => {
             m._2 match {
-              case FunDecl(_, _, _, r, _, _, _) => r.t
+              case FunDecl(_, _, r, _, _, _) => r.ti.t
               case _ => throw ProcReturnException(i)
             }
           }
@@ -122,6 +124,9 @@ trait ContextCheckers {
           case None => throw UndefinedVariableException(i);
           case Some(s) => {
             if (init) {
+              // attempt of initializing in/inout store
+              s.flow.foreach(f => if (f == In || f == InOut) throw InStoreInitialization(i, f))
+
               // has already been initialized
               if (s.initialzed) throw DuplicateInitialize(i);
               s.initialzed = true;
@@ -141,8 +146,8 @@ trait ContextCheckers {
   /**
    * Checks a composition of commands (main or method)
    */
-  def checkCpsCmd(cpsCmd: CpsCmd, scope: MutableList[Store]) = {
-    cpsCmd.cl.foreach(cmd => checkCmd(cmd, scope))
+  def checkCpsCmd(cpsCmd: List[Cmd], scope: MutableList[Store]) = {
+    cpsCmd.foreach(cmd => checkCmd(cmd, scope))
   }
   def checkCmd(cmd: Cmd, scope: MutableList[Store]) {
     cmd match {
@@ -179,7 +184,7 @@ trait ContextCheckers {
       }
       case WhileCmd(e, cmd) => {
         // check if expression returns a bool
-        if (returnType(e, scope) != BoolType) throw TypeMismatchError(cmd, BoolType, returnType(e, scope)); checkExpr(e, scope); checkCpsCmd(cmd, scope);
+        if (returnType(e, scope) != BoolType) throw TypeMismatchError(e, BoolType, returnType(e, scope)); checkExpr(e, scope); checkCpsCmd(cmd, scope);
 
         // TODO e must be initialized!
       }
@@ -199,15 +204,15 @@ trait ContextCheckers {
   def checkParameters(decl: Decl, tupleExpr: TupleExpr, scope: MutableList[Store]) {
     decl match {
       case StoreDecl(_, i) => throw new CompilerException(i.i + " is not a proc or fun");
-      case FunDecl(identifier, params, _, _, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope)
+      case FunDecl(identifier, params, r, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope)
       case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope)
     }
   }
 
-  def checkMethodParameters(tupleExpr: TupleExpr, params: ParamList, scope: MutableList[Store]) {
-    if (tupleExpr.l.size != params.p.size) throw InvalidParamaterAmount(tupleExpr, params.p.size, tupleExpr.l.size);
+  def checkMethodParameters(tupleExpr: TupleExpr, params: List[Parameter], scope: MutableList[Store]) {
+    if (tupleExpr.l.size != params.size) throw InvalidParamaterAmount(tupleExpr, params.size, tupleExpr.l.size);
 
-    val o = tupleExpr.l.zip(params.p);
+    val o = tupleExpr.l.zip(params);
     o.foreach(element => {
 
       // check if the given expression is valid
@@ -230,56 +235,70 @@ trait ContextCheckers {
     })
   }
 
-  def loadGlobalCpsDecl(cpsDecl: Option[CpsDecl]) = cpsDecl.foreach(x => x.declList.foreach(decl => loadGlobalDecl(decl)))
+  def loadGlobalCpsDecl(cpsDecl: List[Decl]) = cpsDecl.foreach(decl => loadGlobalDecl(decl))
   def loadGlobalDecl(decl: Decl) {
     decl match {
+      // always has to be initialized
       case StoreDecl(c, i) => globalStoreScope.scope += Store(i, None, Some(c), None, false);
-      case FunDecl(identifier, params, _, _, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, cmd);
+      case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, cmd);
       case ProcDecl(identifier, params, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, cmd);
 
     }
   }
 
-  def checkMethods(cpsDecl: Option[CpsDecl]) = cpsDecl.foreach(x => x.declList.foreach(decl => checkMethod(decl)))
+  def checkMethods(cpsDecl: List[Decl]) = cpsDecl.foreach(decl => checkMethod(decl))
   def checkMethod(decl: Decl) {
     decl match {
-      case FunDecl(identifier, params, _, _, imports, cpsDecl, cmd) => checkCpsCmd(cmd, localStoreScope.scope.getOrElse(identifier, new MutableList()));
+      case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => checkCpsCmd(cmd, localStoreScope.scope.getOrElse(identifier, new MutableList()));
       case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkCpsCmd(cmd, localStoreScope.scope.getOrElse(identifier, new MutableList()));
       case StoreDecl(_, init) =>
 
     }
   }
 
-  def loadMethodDecl(identifier: Ident, methodDecl: Decl, cpsDecl: Option[CpsDecl], paramList: ParamList, cpsCmd: CpsCmd) {
+  def loadMethodDecl(identifier: Ident, methodDecl: Decl, cpsDecl: List[Decl], paramList: List[Parameter], cpsCmd: List[Cmd]) {
     if (globalMethodScope.decls.contains(identifier)) throw new DuplicateIdentException(identifier)
 
     globalMethodScope.decls += (identifier -> methodDecl)
+
+    val localScope = localStoreScope.scope.getOrElseUpdate(identifier, new MutableList[Store]());
+
+    // TODO with 2013 IML still needed?
     loadLocalCpsDecl(identifier, cpsDecl)
-    loadParamDecl(identifier, paramList)
+    loadLocalParamDecl(paramList, localScope)
   }
 
-  def loadParamDecl(ident: Ident, params: ParamList) {
-    params.p.foreach(param => {
+  // TODO almost the same as loadLocalParamDecl
+  def loadProgParamDecl(params: List[ProgParameter]) {
+    params.foreach(param => {
+      // IN parameters are initialized by default (so no further initialization is allowed), OUT parameters need to be initialized (IML36)
+      val initialized = param.f.forall(f => f == In || f == InOut)
+      val paramStore = Store(param.ti, None, param.c, param.f, initialized);
+      if (globalStoreScope.scope.find(s => s.typedIdent.i == param.ti.i).isEmpty) globalStoreScope.scope += paramStore; else throw new DuplicateIdentException(param.ti.i);
+    })
+  }
 
-      // IN parameters are initialized by default (so no further initialization is allowed) (IML26)
+  def loadLocalParamDecl(params: List[Parameter], scope: MutableList[Store]) {
+    params.foreach(param => {
+
+      // IN parameters are initialized by default (so no further initialization is allowed), OUT parameters need to be initialized  (IML36)
       val initialized = param.f.forall(f => f == In || f == InOut)
       val paramStore = Store(param.ti, param.m, param.c, param.f, initialized);
-      localStoreScope.scope.get(ident) match {
-        case None => localStoreScope.scope.put(ident, new MutableList[Store]() += paramStore)
-        case Some(x) => if (x.find(ti => ti.typedIdent == param.ti.i).isEmpty) x += paramStore else throw new DuplicateIdentException(param.ti.i)
-      }
+
+      if (scope.find(s => s.typedIdent.i == param.ti.i).isEmpty) scope += paramStore; else throw new DuplicateIdentException(param.ti.i);
 
       // TODO check for invalid combinations!
     })
   }
 
-  def loadLocalCpsDecl(ident: Ident, cpsDecl: Option[CpsDecl]) = {
-    cpsDecl.foreach(x => x.declList.foreach(decl => loadLocalDecl(ident, decl)))
+  def loadLocalCpsDecl(ident: Ident, cpsDecl: List[Decl]) = {
+    cpsDecl.foreach(decl => loadLocalDecl(ident, decl))
   }
 
   def loadLocalDecl(ident: Ident, decl: Decl) {
     decl match {
       case StoreDecl(c, i) => {
+        // always has to be initialized before usage
         val localStore = Store(i, None, Some(c), None, false);
         localStoreScope.scope.get(ident) match {
           case None => localStoreScope.scope.put(ident, new MutableList[Store] += localStore)

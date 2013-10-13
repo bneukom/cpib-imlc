@@ -8,35 +8,28 @@ object AST {
 
   class ASTNode extends Positional
 
-  case class Program(cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends ASTNode
+  case class Program(params: List[ProgParameter], cpsDecl: List[Decl], cmd: List[Cmd]) extends ASTNode
 
   case class TypedIdent(i: Ident, t: Type) extends ASTNode
 
   case class Parameter(f: Option[FlowMode], m: Option[MechMode], c: Option[ChangeMode], ti: TypedIdent) extends ASTNode
-  // TODO class not needed
-  case class ParamList(p: List[Parameter]) extends ASTNode
+  case class ProgParameter(f: Option[FlowMode], c: Option[ChangeMode], ti: TypedIdent) extends ASTNode
 
   sealed abstract class Decl extends ASTNode
-  case class StoreDecl(c: ChangeMode, i: TypedIdent) extends Decl;
-  case class FunDecl(ident: Ident, params: ParamList, cm: Option[ChangeMode], retIdent: TypedIdent, importList: Option[GlobImpList], cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends Decl
-  case class ProcDecl(ident: Ident, params: ParamList, globImpList: Option[GlobImpList], cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends Decl
-
-  case class CpsDecl(declList: List[Decl])
+  case class StoreDecl(c: ChangeMode, ti: TypedIdent) extends Decl;
+  case class FunDecl(ident: Ident, params: List[Parameter], returns: StoreDecl, importList: List[GlobImport], cpsDecl: List[StoreDecl], cmd: List[Cmd]) extends Decl
+  case class ProcDecl(ident: Ident, params: List[Parameter], globImpList: List[GlobImport], cpsDecl: List[StoreDecl], cmd: List[Cmd]) extends Decl
 
   case class GlobImport(f: FlowMode, c: ChangeMode, i: Ident) extends ASTNode
-  // TODO class not needed
-  case class GlobImpList(i: List[GlobImport]) extends ASTNode
 
   sealed abstract class Cmd extends ASTNode
   case class BecomesCmd(lhs: Expr, rhs: Expr) extends Cmd
-  case class WhileCmd(expr: Expr, cmd: CpsCmd) extends Cmd
-  case class IfCmd(expr: Expr, ifCmd: CpsCmd, elseCmd: CpsCmd) extends Cmd
+  case class WhileCmd(expr: Expr, cmd: List[Cmd]) extends Cmd
+  case class IfCmd(expr: Expr, ifCmd: List[Cmd], elseCmd: List[Cmd]) extends Cmd
   case class SkipCmd() extends Cmd
   case class CallCmd(i: Ident, e: TupleExpr) extends Cmd
   case class InputCmd(expr: Expr) extends Cmd
   case class OutputCmd(expr: Expr) extends Cmd
-  // TODO class not needed
-  case class CpsCmd(cl: List[Cmd]) extends ASTNode
 
   // modes
   sealed class FlowMode extends ASTNode

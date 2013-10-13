@@ -6,10 +6,10 @@ import ch.fhnw.imlcompiler.AST._
 
 // TODO positioned for all parsers needed
 trait IMLParsers extends RegexParsers {
-  def program: Parser[Program] = positioned("program" ~ ident ~ opt("global" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endprogram" ^^ { case "program" ~ id ~ cpsdecl ~ "do" ~ cmd ~ "endprogram" => Program(cpsdecl, cmd) })
+  def program: Parser[Program] = positioned("program" ~ ident ~ progParamList ~ opt("global" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endprogram" ^^ { case "program" ~ id ~ progParamList ~ cpsdecl ~ "do" ~ cmd ~ "endprogram" => Program(progParamList, cpsdecl.getOrElse(Nil), cmd) })
 
   def atomtype: Parser[Type] = "int" ^^^ { IntType } | "bool" ^^^ { BoolType }
-  
+
   // commands
   def cmd: Parser[Cmd] = positioned(skipCmd | becomesCmd | ifCmd | whileCmd | callCmd | inputCmd | outputCmd)
   def skipCmd: Parser[SkipCmd] = positioned("skip" ^^^ { SkipCmd() })
@@ -20,7 +20,7 @@ trait IMLParsers extends RegexParsers {
   def inputCmd: Parser[InputCmd] = positioned("input" ~> expr ^^ { case e => InputCmd(e) })
   def outputCmd: Parser[OutputCmd] = positioned("output" ~> expr ^^ { case e => OutputCmd(e) })
 
-  def cpsCmd: Parser[CpsCmd] = repsep(cmd, ";") ^^ { case cl => CpsCmd(cl) }
+  def cpsCmd: Parser[List[Cmd]] = repsep(cmd, ";")
 
   // operators
   def multOpr: Parser[MultOpr] = "*" ^^^ { TimesOpr } | "div" ^^^ { DivOpr } | "mod" ^^^ { ModOpr }
@@ -56,18 +56,22 @@ trait IMLParsers extends RegexParsers {
   def mechMode: Parser[MechMode] = positioned("ref" ^^^ { Ref } | "copy" ^^^ { Copy })
 
   // decls
-  def globImpList: Parser[GlobImpList] = positioned(repsep(globImport, ",") ^^ { case g => GlobImpList(g) })
+  def globImpList: Parser[List[GlobImport]] = repsep(globImport, ",")
   def globImport: Parser[GlobImport] = positioned(flowMode ~ changeMode ~ ident ^^ { case f ~ c ~ i => GlobImport(f, c, i) })
-  def cpsDecl: Parser[CpsDecl] = repsep(decl, ";") ^^ { case dl => CpsDecl(dl) }
+  def cpsDecl: Parser[List[Decl]] = repsep(decl, ";")
+  def cpsStoreDecl: Parser[List[StoreDecl]] = repsep(stoDecl, ";")
   def decl: Parser[Decl] = positioned(stoDecl | funDecl | procDecl)
   def stoDecl: Parser[StoreDecl] = positioned(changeMode ~ typedIdent ^^ { case c ~ i => StoreDecl(c, i) })
-  def funDecl: Parser[FunDecl] = positioned("fun" ~ ident ~ paramList ~ "returns" ~ opt(changeMode) ~ typedIdent ~ opt("global" ~> globImpList) ~ opt("local" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endfun" ^^ { case "fun" ~ i ~ p ~ "returns" ~ c ~ t ~ il ~ cdecl ~ "do" ~ dcps ~ "endfun" => FunDecl(i, p, c, t, il, cdecl, dcps) })
-  def procDecl: Parser[ProcDecl] = positioned("proc" ~ ident ~ paramList ~ opt("global" ~> globImpList) ~ opt("local" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endproc" ^^ { case "proc" ~ i ~ pl ~ gimp ~ ldecl ~ "do" ~ cmds ~ "endproc" => ProcDecl(i, pl, gimp, ldecl, cmds) })
+  def funDecl: Parser[FunDecl] = positioned("fun" ~ ident ~ paramList ~ "returns" ~ stoDecl ~ opt("global" ~> globImpList) ~ opt("local" ~> cpsStoreDecl) ~ "do" ~ cpsCmd ~ "endfun" ^^ { case "fun" ~ i ~ p ~ "returns" ~ stodecl ~ globImportList ~ cdecl ~ "do" ~ dcps ~ "endfun" => FunDecl(i, p, stodecl, globImportList.getOrElse(Nil), cdecl.getOrElse(Nil), dcps) })
+  def procDecl: Parser[ProcDecl] = positioned("proc" ~ ident ~ paramList ~ opt("global" ~> globImpList) ~ opt("local" ~> cpsStoreDecl) ~ "do" ~ cpsCmd ~ "endproc" ^^ { case "proc" ~ i ~ pl ~ gimp ~ ldecl ~ "do" ~ cmds ~ "endproc" => ProcDecl(i, pl, gimp.getOrElse(Nil), ldecl.getOrElse(Nil), cmds) })
 
   // params
-  def paramList: Parser[ParamList] = positioned("(" ~ repsep(parameter, ",") ~ ")" ^^ { case "(" ~ p ~ ")" => ParamList(p) })
+  def paramList: Parser[List[Parameter]] = "(" ~> repsep(parameter, ",") <~ ")"
   def parameter: Parser[Parameter] = positioned(opt(flowMode) ~ opt(mechMode) ~ opt(changeMode) ~ typedIdent ^^ { case f ~ m ~ c ~ t => Parameter(f, m, c, t) })
   def typedIdent: Parser[TypedIdent] = positioned(ident ~ ":" ~ atomtype ^^ { case i ~ ":" ~ t => TypedIdent(i, t) })
+
+  def progParamList: Parser[List[ProgParameter]] = "(" ~> repsep(progParameter, ",") <~ ")"
+  def progParameter: Parser[ProgParameter] = positioned(opt(flowMode) ~ opt(changeMode) ~ typedIdent ^^ { case f ~ c ~ t => ProgParameter(f, c, t) })
 
   case class ParseException(n: String) extends CompilerException(n)
 

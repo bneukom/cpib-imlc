@@ -1,0 +1,16 @@
+program intDiv(in const m:int, in const n:int, out const q:int, out const r:int)
+global
+ proc divide(in copy const m:int, in copy const n:int, out ref var q:int, out ref var r:int)
+ do
+  q init := 0;
+  r init := m;
+  while r >= n do
+   q := q + 1;
+   r := r - n
+  endwhile
+ endproc;
+ var x:bool
+do
+  x init:=true;
+  call divide(x, n, q init, r init)
+endprogram
