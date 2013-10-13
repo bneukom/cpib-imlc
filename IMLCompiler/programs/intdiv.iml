@@ -1,4 +1,4 @@
-programintDiv
+program intDiv
 global
  proc divide(in copy m:int, in copy n:int, out ref q:int, out ref r:int)
  do
@@ -9,12 +9,13 @@ global
    r := r - n
   endwhile
  endproc;
- var m:bool;
+ var m:int;
  var n:int;
  var q:int;
  var r:int
 do
- input m init;
+ m init := 3;
+ input m;
  input n init;
  call divide(m, n, q init, r init);
  output q;

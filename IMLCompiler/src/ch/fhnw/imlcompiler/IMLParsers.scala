@@ -9,7 +9,7 @@ trait IMLParsers extends RegexParsers {
   def program: Parser[Program] = positioned("program" ~ ident ~ opt("global" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endprogram" ^^ { case "program" ~ id ~ cpsdecl ~ "do" ~ cmd ~ "endprogram" => Program(cpsdecl, cmd) })
 
   def atomtype: Parser[Type] = "int" ^^^ { IntType } | "bool" ^^^ { BoolType }
-
+  
   // commands
   def cmd: Parser[Cmd] = positioned(skipCmd | becomesCmd | ifCmd | whileCmd | callCmd | inputCmd | outputCmd)
   def skipCmd: Parser[SkipCmd] = positioned("skip" ^^^ { SkipCmd() })
@@ -60,7 +60,7 @@ trait IMLParsers extends RegexParsers {
   def globImport: Parser[GlobImport] = positioned(flowMode ~ changeMode ~ ident ^^ { case f ~ c ~ i => GlobImport(f, c, i) })
   def cpsDecl: Parser[CpsDecl] = repsep(decl, ";") ^^ { case dl => CpsDecl(dl) }
   def decl: Parser[Decl] = positioned(stoDecl | funDecl | procDecl)
-  def stoDecl: Parser[VarDecl] = positioned(changeMode ~ typedIdent ^^ { case c ~ i => VarDecl(c, i) })
+  def stoDecl: Parser[StoreDecl] = positioned(changeMode ~ typedIdent ^^ { case c ~ i => StoreDecl(c, i) })
   def funDecl: Parser[FunDecl] = positioned("fun" ~ ident ~ paramList ~ "returns" ~ opt(changeMode) ~ typedIdent ~ opt("global" ~> globImpList) ~ opt("local" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endfun" ^^ { case "fun" ~ i ~ p ~ "returns" ~ c ~ t ~ il ~ cdecl ~ "do" ~ dcps ~ "endfun" => FunDecl(i, p, c, t, il, cdecl, dcps) })
   def procDecl: Parser[ProcDecl] = positioned("proc" ~ ident ~ paramList ~ opt("global" ~> globImpList) ~ opt("local" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endproc" ^^ { case "proc" ~ i ~ pl ~ gimp ~ ldecl ~ "do" ~ cmds ~ "endproc" => ProcDecl(i, pl, gimp, ldecl, cmds) })
 

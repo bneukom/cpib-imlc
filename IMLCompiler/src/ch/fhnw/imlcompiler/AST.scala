@@ -12,17 +12,19 @@ object AST {
 
   case class TypedIdent(i: Ident, t: Type) extends ASTNode
 
-  case class Parameter(f: Option[FlowMode], m: Option[MechMode], c: Option[ChangeMode], t: TypedIdent) extends ASTNode
+  case class Parameter(f: Option[FlowMode], m: Option[MechMode], c: Option[ChangeMode], ti: TypedIdent) extends ASTNode
+  // TODO class not needed
   case class ParamList(p: List[Parameter]) extends ASTNode
 
   sealed abstract class Decl extends ASTNode
-  case class VarDecl(c: ChangeMode, i: TypedIdent) extends Decl;
+  case class StoreDecl(c: ChangeMode, i: TypedIdent) extends Decl;
   case class FunDecl(ident: Ident, params: ParamList, cm: Option[ChangeMode], retIdent: TypedIdent, importList: Option[GlobImpList], cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends Decl
   case class ProcDecl(ident: Ident, params: ParamList, globImpList: Option[GlobImpList], cpsDecl: Option[CpsDecl], cmd: CpsCmd) extends Decl
 
   case class CpsDecl(declList: List[Decl])
 
   case class GlobImport(f: FlowMode, c: ChangeMode, i: Ident) extends ASTNode
+  // TODO class not needed
   case class GlobImpList(i: List[GlobImport]) extends ASTNode
 
   sealed abstract class Cmd extends ASTNode
@@ -33,6 +35,7 @@ object AST {
   case class CallCmd(i: Ident, e: TupleExpr) extends Cmd
   case class InputCmd(expr: Expr) extends Cmd
   case class OutputCmd(expr: Expr) extends Cmd
+  // TODO class not needed
   case class CpsCmd(cl: List[Cmd]) extends ASTNode
 
   // modes
@@ -49,14 +52,15 @@ object AST {
   case object Const extends ChangeMode
   case object Var extends ChangeMode
 
+  // TODO class not needed
   case class TupleExpr(l: List[Expr]) extends ASTNode
+
+  case class Ident(value: String) extends ASTNode
 
   // expressions
   sealed abstract class Expr extends ASTNode
   case class DyadicExpr(l: Expr, op: Opr, r: Expr) extends Expr
   case class MonadicExpr(l: Expr, op: Opr) extends Expr
-
-  case class Ident(value: String) extends ASTNode
   case class FunCallExpr(i: Ident, e: TupleExpr) extends Expr;
   case class StoreExpr(i: Ident, isInitialization: Boolean) extends Expr;
   case class LiteralExpr(l: Literal) extends Expr;
@@ -68,6 +72,7 @@ object AST {
 
   // type
   sealed class Type
+  case class ListType(t: Type) extends Type { override def toString() = "[" + t + "]" }
   case object IntType extends Type { override def toString() = "int32" }
   case object BoolType extends Type { override def toString() = "bool" }
 
