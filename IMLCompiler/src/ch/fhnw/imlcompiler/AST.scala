@@ -6,6 +6,8 @@ import sun.org.mozilla.javascript.internal.ast.AstNode
 
 object AST {
 
+  val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init","inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip" ,"then" , "true", "var", "while")
+  
   class ASTNode extends Positional
 
   case class Program(params: List[ProgParameter], cpsDecl: List[Decl], cmd: List[Cmd]) extends ASTNode
@@ -82,6 +84,7 @@ object AST {
   abstract sealed class BoolOpr extends Opr;
   case object Cand extends BoolOpr;
   case object Cor extends BoolOpr;
+  case object Not extends BoolOpr;
 
   abstract sealed class MultOpr extends Opr
   case object DivOpr extends MultOpr { override def toString() = "div" }
@@ -91,7 +94,5 @@ object AST {
   abstract sealed class AddOpr extends Opr
   case object PlusOpr extends AddOpr { override def toString() = "plus" }
   case object MinusOpr extends AddOpr { override def toString() = "minus" }
-
-  case object Not extends Opr
 
 }

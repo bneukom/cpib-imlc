@@ -10,7 +10,7 @@ trait ContextCheckers {
   case class DuplicateIdentException(ident: Ident) extends CompilerException("(" + ident.pos.line + ":" + ident.pos.column + ") '" + ident.value + "' is already defined\n\n" + ident.pos.longString + "\nAST: " + ident)
   case class InvalidDeclException(decl: Decl) extends CompilerException("(" + decl.pos.line + ":" + decl.pos.column + ") " + decl.pos.longString + "invalid decleration of " + decl + "\n\nAST: " + decl)
   // TODO change to TypeMismatchError (for lists lhs and rhs will not be the same "operand")
-  case class OperandTypeErrorException(n: ASTNode, expected: Type, opr: Opr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") wrong operand for operator: " + opr + " required: " + expected + "\n\n" + n.pos.longString + "\nAST: " + n)
+  case class OperandTypeErrorException(n: ASTNode, expected: Type, opr: Opr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") wrong operand for operator " + opr + " required: " + expected + "\n\n" + n.pos.longString + "\nAST: " + n)
   case class TypeMismatchError(n: ASTNode, required: Type, found: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") type mismatch; found: " + found + " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n)
   case class UndefinedVariableException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined variable '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class UndefinedMethodException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined method '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
@@ -22,6 +22,7 @@ trait ContextCheckers {
   case class InvalidLValue(n: Expr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") expression: '" + n + "' is not a valid lvalue\n\n" + n.pos.longString + "\nAST: " + n);
   case class ConstModification(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") identifier '" + n.value + "' is const and can not be modified\n\n" + n.pos.longString + "\nAST: " + n);
   case class InStoreInitialization(n: Ident, f: FlowMode) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing " + f.toString().toLowerCase() + " mode store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
+  case class LoopedInit(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing store: " + n.value + " inside a loop body\n\n" + n.pos.longString + "\nAST: " + n);
 
   case class Context(globalVarScope: GlobalStoreScope, localVarScope: LocalStoreScopes, globalMethodScope: GlobalMethodScope)
 
@@ -47,7 +48,6 @@ trait ContextCheckers {
     println(localStoreScope)
     println(globalMethodScope)
     println()
-    
 
     // check all defined methods for possible errors (type, flow, initialized, etc.)
     checkMethods(prog.cpsDecl);
@@ -109,7 +109,8 @@ trait ContextCheckers {
     }
   }
 
-  def checkExpr(e: Expr, scope: MutableList[Store], lvalue: Boolean = false) {
+  // TODO branched initialization (what if store was initialized only in if block or if and else both?)
+  def checkExpr(e: Expr, scope: MutableList[Store], lvalue: Boolean = false, loopedExpr: Boolean = false) {
     e match {
       case DyadicExpr(lhs, opr, rhs) =>
         checkExpr(lhs, scope);
@@ -125,6 +126,11 @@ trait ContextCheckers {
           case None => throw UndefinedVariableException(i);
           case Some(s) => {
             if (init) {
+              // can not initialize a store inside of a loop
+              if (loopedExpr) {
+                throw LoopedInit(i)
+              }
+
               // attempt of initializing in/inout store
               s.flow.foreach(f => if (f == In || f == InOut) throw InStoreInitialization(i, f))
 
@@ -147,20 +153,19 @@ trait ContextCheckers {
   /**
    * Checks a composition of commands (main or method)
    */
-  def checkCpsCmd(cpsCmd: List[Cmd], scope: MutableList[Store]) = {
-    cpsCmd.foreach(cmd => checkCmd(cmd, scope))
+  def checkCpsCmd(cpsCmd: List[Cmd], scope: MutableList[Store], loopedCmd: Boolean = false) = {
+    cpsCmd.foreach(cmd => checkCmd(cmd, scope, loopedCmd))
   }
-  def checkCmd(cmd: Cmd, scope: MutableList[Store]) {
+  def checkCmd(cmd: Cmd, scope: MutableList[Store], loopedCmd: Boolean = false) {
     cmd match {
       case BecomesCmd(lhs, rhs) => {
         lhs match {
-          case StoreExpr(expr, isInit) => checkExpr(lhs, scope, true);
+          case StoreExpr(expr, isInit) => checkExpr(lhs, scope, true, loopedCmd);
           case _ => throw InvalidLValue(lhs);
         }
-        checkExpr(rhs, scope);
+        checkExpr(rhs, scope, loopedExpr = loopedCmd);
 
         // TODO lhs must not be declared const!
-        // If checkCmd was called from WhileCmd init is NOT ALLOWED! (flag)
         if (returnType(lhs, scope) != returnType(rhs, scope)) throw TypeMismatchError(cmd, returnType(lhs, scope), returnType(rhs, scope))
       }
       case SkipCmd() => {}
@@ -168,56 +173,52 @@ trait ContextCheckers {
         globalMethodScope.decls.get(i) match {
           case None => throw UndefinedMethodException(i)
           case Some(decl) => {
-            checkParameters(decl, t, scope);
+            checkParameters(decl, t, scope, loopedCmd);
           }
         }
-
-        // TODO also check if all used variables have been initialized!
       }
       case IfCmd(e, ifcmd, elsecmd) => {
         // check if expression returns a bool
         if (returnType(e, scope) != BoolType) throw TypeMismatchError(cmd, BoolType, returnType(e, scope));
-        checkExpr(e, scope);
-        checkCpsCmd(ifcmd, scope);
-        checkCpsCmd(elsecmd, scope)
-
-        // TODO e must be initialized!
+        checkExpr(e, scope, loopedExpr = loopedCmd);
+        checkCpsCmd(ifcmd, scope, loopedCmd);
+        checkCpsCmd(elsecmd, scope, loopedCmd)
       }
       case WhileCmd(e, cmd) => {
         // check if expression returns a bool
-        if (returnType(e, scope) != BoolType) throw TypeMismatchError(e, BoolType, returnType(e, scope)); checkExpr(e, scope); checkCpsCmd(cmd, scope);
-
-        // TODO e must be initialized!
+        if (returnType(e, scope) != BoolType) throw TypeMismatchError(e, BoolType, returnType(e, scope));
+        checkExpr(e, scope, loopedExpr = true);
+        checkCpsCmd(cmd, scope, loopedCmd = true);
       }
       case InputCmd(e) => {
         e match {
-          case StoreExpr(i, init) => checkExpr(e, scope, true)
+          case StoreExpr(i, init) => checkExpr(e, scope, true, loopedExpr = loopedCmd)
           case _ => throw InvalidLValue(e)
         }
       }
       case OutputCmd(e) => {
-        checkExpr(e, scope);
+        checkExpr(e, scope, loopedExpr = loopedCmd);
       }
 
     }
   }
 
-  def checkParameters(decl: Decl, tupleExpr: TupleExpr, scope: MutableList[Store]) {
+  def checkParameters(decl: Decl, tupleExpr: TupleExpr, scope: MutableList[Store], looped: Boolean = false) {
     decl match {
       case StoreDecl(_, i) => throw new CompilerException(i.i + " is not a proc or fun");
-      case FunDecl(identifier, params, r, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope)
-      case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope)
+      case FunDecl(identifier, params, r, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope, looped)
+      case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope, looped)
     }
   }
 
-  def checkMethodParameters(tupleExpr: TupleExpr, params: List[Parameter], scope: MutableList[Store]) {
+  def checkMethodParameters(tupleExpr: TupleExpr, params: List[Parameter], scope: MutableList[Store], looped: Boolean = false) {
     if (tupleExpr.l.size != params.size) throw InvalidParamaterAmount(tupleExpr, params.size, tupleExpr.l.size);
 
     val o = tupleExpr.l.zip(params);
     o.foreach(element => {
 
       // check if the given expression is valid
-      checkExpr(element._1, scope)
+      checkExpr(element._1, scope, loopedExpr = looped)
 
       // TODO default values??
       val flowMode = element._2.f.getOrElse(() => In);
@@ -270,9 +271,8 @@ trait ContextCheckers {
 
     val localScope = localStoreScope.scope.getOrElseUpdate(identifier, new MutableList[Store]());
 
-    // TODO with 2013 IML still needed?
-    loadLocalCpsDecl(identifier, cpsDecl)
     loadLocalParams(paramList, localScope)
+    loadLocalCpsDecl(identifier, cpsDecl, localScope)
   }
 
   // TODO almost the same as loadLocalParamDecl
@@ -298,18 +298,16 @@ trait ContextCheckers {
     })
   }
 
-  def loadLocalCpsDecl(ident: Ident, cpsDecl: List[Decl]) = {
-    cpsDecl.foreach(decl => loadLocalDecl(ident, decl))
+  def loadLocalCpsDecl(ident: Ident, cpsDecl: List[Decl], scope: MutableList[Store]) = {
+    cpsDecl.foreach(decl => loadLocalDecl(ident, decl, scope))
   }
 
-  def loadLocalDecl(ident: Ident, decl: Decl) {
+  def loadLocalDecl(ident: Ident, decl: Decl, scope: MutableList[Store]) {
     decl match {
-      case StoreDecl(c, i) => {
-        val localStore = Store(i, None, Some(c), None, false);
-        localStoreScope.scope.get(ident) match {
-          case None => localStoreScope.scope.put(ident, new MutableList[Store] += localStore)
-          case Some(scopeList) => if (!scopeList.contains(i)) scopeList += localStore else throw new DuplicateIdentException(i.i)
-        }
+      case StoreDecl(c, ti) => {
+        val localStore = Store(ti, None, Some(c), None, false);
+        if (scope.find(s => s.typedIdent.i == ti.i).isEmpty) scope += localStore
+        else throw new DuplicateIdentException(ti.i)
       }
       // can not declare anything else inside method declarations
       case _ => throw InvalidDeclException(decl);

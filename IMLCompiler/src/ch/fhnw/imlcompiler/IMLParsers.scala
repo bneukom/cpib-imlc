@@ -16,6 +16,7 @@ trait IMLParsers extends RegexParsers {
   def becomesCmd: Parser[BecomesCmd] = positioned(expr ~ ":=" ~ expr ^^ { case lhs ~ ":=" ~ rhs => BecomesCmd(lhs, rhs) })
   def ifCmd: Parser[IfCmd] = positioned("if" ~ expr ~ "do" ~ cpsCmd ~ "else" ~ cpsCmd ~ "endif" ^^ { case "if" ~ expr ~ "do" ~ c1 ~ "else" ~ c2 ~ "endif" => IfCmd(expr, c1, c2) })
   def whileCmd: Parser[WhileCmd] = positioned("while" ~ expr ~ "do" ~ cpsCmd ~ "endwhile" ^^ { case "while" ~ t1 ~ "do" ~ c ~ "endwhile" => WhileCmd(t1, c) })
+  // TODO implement globInits
   def callCmd: Parser[CallCmd] = positioned("call" ~ ident ~ tupleExpr ^^ { case "call" ~ i ~ t => CallCmd(i, t) })
   def inputCmd: Parser[InputCmd] = positioned("input" ~> expr ^^ { case e => InputCmd(e) })
   def outputCmd: Parser[OutputCmd] = positioned("output" ~> expr ^^ { case e => OutputCmd(e) })
@@ -28,21 +29,20 @@ trait IMLParsers extends RegexParsers {
   def relOpr: Parser[RelOpr] = "==" ^^^ { EQ } | "/=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT }
   def addOpr: Parser[AddOpr] = "-" ^^^ { MinusOpr } | "+" ^^^ { PlusOpr }
 
-  // TODO exclude keywords!!
   // TODO change regex for identifier
-  def ident: Parser[Ident] = positioned(raw"[A-Za-z0-9]+".r.withFailureMessage("identifier expected") ^^ { x => Ident(x.toString()) })
+  def ident: Parser[Ident] = positioned(raw"[A-Za-z]+[A-Za-z0-9]*".r.withFilter(!AST.keywords.contains(_)).withFailureMessage("identifier expected") ^^ { x => Ident(x.toString()) })
 
   // literals
   def literal: Parser[Literal] = positioned(intLiteral | boolLiteral)
   def intLiteral: Parser[IntLiteral] = positioned("[0-9]+".r ^^ { x => { IntLiteral(x.toInt) } })
   def boolLiteral: Parser[BoolLiteral] = positioned(("true" | "false") ^^ { x => BoolLiteral(x.toBoolean) })
+  def notParser: Parser[BoolOpr] = "not" ^^^ { Not }
 
   // expressions
   def monadicExpr: Parser[MonadicExpr] = positioned(monadicAddExpr | monadicNotExpr)
   def monadicAddExpr: Parser[MonadicExpr] = positioned(addOpr ~ factor ^^ { case op ~ exp => MonadicExpr(exp, op) })
-  def monadicNotExpr: Parser[MonadicExpr] = positioned("not" ~> factor ^^ { case exp => MonadicExpr(exp, Not) })
+  def monadicNotExpr: Parser[MonadicExpr] = positioned(notParser ~ factor ^^ { case n ~ exp => MonadicExpr(exp, n) })
 
-  // TODO Store Expr probably wrong?
   def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | "(" ~> expr <~ ")")
 
   def expr: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
@@ -81,4 +81,5 @@ trait IMLParsers extends RegexParsers {
       case failure: NoSuccess => throw ParseException("Parser Error at " + failure.next.pos.line + ":" + failure.next.pos.column + "\n" + failure.next.pos.longString + "\nMessage: " + failure.msg) // "at " + n.pos.line + ":" + n.pos.column + "\n" + n.pos.longString + 
     }
   }
+
 }

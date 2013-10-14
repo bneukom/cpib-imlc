@@ -18,7 +18,7 @@ object Compiler extends IMLParsers with ContextCheckers {
     //      val prog = "program test global proc test(in copy m:bool, out copy m:int, y:int, z:int) do m:=3 * x + 4 > y && z > 10 endproc; var x:int; proc test2(in copy m:int, out copy a:int) do m:=m div (m * (a + 1)) endproc do skip endprogram"
     //	  val prog = "program test global proc test(in copy a:int, in copy b:bool, x:int, z:int) do call test(41 * true, true,3, 3); call test2() endproc; proc test2() do skip endproc do skip endprogram"
 	  
-    val file = scala.io.Source.fromFile("programs/intdiv2.iml")
+    val file = scala.io.Source.fromFile("programs/booltest.iml")
     val imlcode = file.mkString
     file.close()
 
@@ -31,7 +31,7 @@ object Compiler extends IMLParsers with ContextCheckers {
 
       // context check
       val context = check(parseResult);
-
+      
       // TODO interpret
     } catch {
       case e: ParseException => System.err.println(e.getMessage)
