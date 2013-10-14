@@ -2,22 +2,22 @@ program intDiv(in const m:int, in const n:int, out const q:int, out const r:int)
 global
  proc divide(in copy const m:int, in copy const n:int, out ref var q:int, out ref var r:int)
  local
-  const b:bool
+  var b:bool
  do
-  q init := 0;
+  q init := 0 || true;
   r init := m;
   
   b init := false;
-  if not true do
+  b := q > 2;
+  if true do
+   skip
   else
    skip
   endif;
   
   while r >= n do
    if false || true do
-    skip 
    else 
-    skip 
    endif;
    q := q + 1;
    r := r - n

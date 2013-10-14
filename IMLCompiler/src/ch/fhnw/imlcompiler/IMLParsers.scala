@@ -51,9 +51,9 @@ trait IMLParsers extends RegexParsers {
   def term3: Parser[Expr] = positioned(factor * (multOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
   def tupleExpr: Parser[TupleExpr] = positioned("(" ~ repsep(expr, ",") ~ ")" ^^ { case "(" ~ e ~ ")" => TupleExpr(e) })
 
-  def flowMode: Parser[FlowMode] = positioned("in" ^^^ { In } | "out" ^^^ { Out } | "inout" ^^^ { InOut })
-  def changeMode: Parser[ChangeMode] = positioned("var" ^^^ { Var } | "const" ^^^ { Const })
-  def mechMode: Parser[MechMode] = positioned("ref" ^^^ { Ref } | "copy" ^^^ { Copy })
+  def flowMode: Parser[FlowMode] = positioned("in" ^^^ { In } | "out" ^^^ { Out } | "inout" ^^^ { InOut }).withFailureMessage("flowmode expected")
+  def changeMode: Parser[ChangeMode] = positioned("var" ^^^ { Var } | "const" ^^^ { Const }).withFailureMessage("changemode expected")
+  def mechMode: Parser[MechMode] = positioned("ref" ^^^ { Ref } | "copy" ^^^ { Copy }).withFailureMessage("mechmode expected")
 
   // decls
   def globImpList: Parser[List[GlobImport]] = repsep(globImport, ",")

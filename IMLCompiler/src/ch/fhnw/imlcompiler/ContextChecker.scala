@@ -4,13 +4,12 @@ import scala.collection.mutable.HashMap
 import scala.collection.mutable.MutableList
 import ch.fhnw.imlcompiler.AST._
 
+// TODO create a CallRoot class (Cmd, IfCmd, WhileCmd, ???) instead of the boolean
 // TODO do not use exceptions but rather a CheckResult which is either a CheckError or a IMLContext (which is then used by the code generator)
 trait ContextCheckers {
 
   case class DuplicateIdentException(ident: Ident) extends CompilerException("(" + ident.pos.line + ":" + ident.pos.column + ") '" + ident.value + "' is already defined\n\n" + ident.pos.longString + "\nAST: " + ident)
   case class InvalidDeclException(decl: Decl) extends CompilerException("(" + decl.pos.line + ":" + decl.pos.column + ") " + decl.pos.longString + "invalid decleration of " + decl + "\n\nAST: " + decl)
-  // TODO change to TypeMismatchError (for lists lhs and rhs will not be the same "operand")
-  case class OperandTypeErrorException(n: ASTNode, expected: Type, opr: Opr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") wrong operand for operator " + opr + " required: " + expected + "\n\n" + n.pos.longString + "\nAST: " + n)
   case class TypeMismatchError(n: ASTNode, required: Type, found: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") type mismatch; found: " + found + " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n)
   case class UndefinedVariableException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined variable '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class UndefinedMethodException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined method '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
@@ -115,10 +114,11 @@ trait ContextCheckers {
       case DyadicExpr(lhs, opr, rhs) =>
         checkExpr(lhs, scope);
         checkExpr(rhs, scope);
-        if (returnType(lhs, scope) != expectedOperandType(opr) || returnType(rhs, scope) != expectedOperandType(opr)) throw OperandTypeErrorException(e, expectedOperandType(opr), opr)
+        if (returnType(lhs, scope) != expectedOperandType(opr)) throw TypeMismatchError(e, expectedOperandType(opr), returnType(lhs, scope))
+        if (returnType(rhs, scope) != expectedOperandType(opr)) throw TypeMismatchError(e, expectedOperandType(opr), returnType(rhs, scope))
       case MonadicExpr(lhs, opr) =>
         checkExpr(lhs, scope);
-        if (returnType(lhs, scope) != expectedOperandType(opr)) throw OperandTypeErrorException(e, expectedOperandType(opr), opr)
+        if (returnType(lhs, scope) != expectedOperandType(opr)) throw TypeMismatchError(e, expectedOperandType(opr), returnType(opr))
       case LiteralExpr(_) => {}
       case FunCallExpr(_, el) => {} // TODO type of every expression must be compatible with target type from function and also expression must not have type errors
       case StoreExpr(i, init) => {
