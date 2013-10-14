@@ -8,9 +8,8 @@ global
    q := q + 1;
    r := r - n
   endwhile
- endproc;
- var x:bool
+ endproc
+
 do
-  x init:=true;
-  call divide(x, n, q init, r init)
+  call divide(x init, n, q init, r init)
 endprogram

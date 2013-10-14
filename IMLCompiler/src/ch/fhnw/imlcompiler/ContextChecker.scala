@@ -40,13 +40,14 @@ trait ContextCheckers {
   def check(prog: Program): Context = {
     // load global declarations first (so we don't need any forward declarations)
     loadGlobalCpsDecl(prog.cpsDecl);
-    loadProgParamDecl(prog.params);
+    loadProgParams(prog.params);
 
     println("Scope loaded: ")
     println(globalStoreScope)
     println(localStoreScope)
     println(globalMethodScope)
     println()
+    
 
     // check all defined methods for possible errors (type, flow, initialized, etc.)
     checkMethods(prog.cpsDecl);
@@ -238,8 +239,13 @@ trait ContextCheckers {
   def loadGlobalCpsDecl(cpsDecl: List[Decl]) = cpsDecl.foreach(decl => loadGlobalDecl(decl))
   def loadGlobalDecl(decl: Decl) {
     decl match {
-      // always has to be initialized
-      case StoreDecl(c, i) => globalStoreScope.scope += Store(i, None, Some(c), None, false);
+      case StoreDecl(c, ti) => {
+        // multiple vars with same name
+        if (globalStoreScope.scope.find(s => s.typedIdent.i == ti.i).isDefined) throw DuplicateIdentException(ti.i)
+
+        // init = false => always has to be initialized
+        globalStoreScope.scope += Store(ti, None, Some(c), None, false);
+      }
       case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, cmd);
       case ProcDecl(identifier, params, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, cmd);
 
@@ -257,6 +263,7 @@ trait ContextCheckers {
   }
 
   def loadMethodDecl(identifier: Ident, methodDecl: Decl, cpsDecl: List[Decl], paramList: List[Parameter], cpsCmd: List[Cmd]) {
+    // multiple methods with same name
     if (globalMethodScope.decls.contains(identifier)) throw new DuplicateIdentException(identifier)
 
     globalMethodScope.decls += (identifier -> methodDecl)
@@ -265,11 +272,11 @@ trait ContextCheckers {
 
     // TODO with 2013 IML still needed?
     loadLocalCpsDecl(identifier, cpsDecl)
-    loadLocalParamDecl(paramList, localScope)
+    loadLocalParams(paramList, localScope)
   }
 
   // TODO almost the same as loadLocalParamDecl
-  def loadProgParamDecl(params: List[ProgParameter]) {
+  def loadProgParams(params: List[ProgParameter]) {
     params.foreach(param => {
       // IN parameters are initialized by default (so no further initialization is allowed), OUT parameters need to be initialized (IML36)
       val initialized = param.f.forall(f => f == In || f == InOut)
@@ -278,7 +285,7 @@ trait ContextCheckers {
     })
   }
 
-  def loadLocalParamDecl(params: List[Parameter], scope: MutableList[Store]) {
+  def loadLocalParams(params: List[Parameter], scope: MutableList[Store]) {
     params.foreach(param => {
 
       // IN parameters are initialized by default (so no further initialization is allowed), OUT parameters need to be initialized  (IML36)
@@ -298,7 +305,6 @@ trait ContextCheckers {
   def loadLocalDecl(ident: Ident, decl: Decl) {
     decl match {
       case StoreDecl(c, i) => {
-        // always has to be initialized before usage
         val localStore = Store(i, None, Some(c), None, false);
         localStoreScope.scope.get(ident) match {
           case None => localStoreScope.scope.put(ident, new MutableList[Store] += localStore)
