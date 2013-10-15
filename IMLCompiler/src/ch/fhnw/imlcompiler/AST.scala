@@ -22,7 +22,7 @@ object AST {
   case class FunDecl(ident: Ident, params: List[Parameter], returns: StoreDecl, importList: List[GlobImport], cpsDecl: List[StoreDecl], cmd: List[Cmd]) extends Decl
   case class ProcDecl(ident: Ident, params: List[Parameter], globImpList: List[GlobImport], cpsDecl: List[StoreDecl], cmd: List[Cmd]) extends Decl
 
-  case class GlobImport(f: FlowMode, c: ChangeMode, i: Ident) extends ASTNode
+  case class GlobImport(f: Option[FlowMode], c: Option[ChangeMode], i: Ident) extends ASTNode
 
   sealed abstract class Cmd extends ASTNode
   case class BecomesCmd(lhs: Expr, rhs: Expr) extends Cmd
@@ -66,13 +66,13 @@ object AST {
   case class BoolLiteral(v: Boolean) extends Literal
 
   // type
-  sealed class Type
+  sealed class Type extends Positional
   case class ListType(t: Type) extends Type { override def toString() = "[" + t + "]" }
   case object IntType extends Type { override def toString() = "int32" }
   case object BoolType extends Type { override def toString() = "bool" }
 
   // operators
-  abstract sealed class Opr
+  abstract sealed class Opr extends Positional
   abstract sealed class RelOpr extends Opr;
   case object EQ extends RelOpr;
   case object NE extends RelOpr;

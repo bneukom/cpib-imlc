@@ -6,7 +6,7 @@ import ch.fhnw.imlcompiler.AST._
 
 // TODO create a CallRoot class (Cmd, IfCmd, WhileCmd, ???) instead of the boolean
 // TODO do not use exceptions but rather a CheckResult which is either a CheckError or a IMLContext (which is then used by the code generator)
-trait ContextCheckers {
+trait Checkers {
 
   case class DuplicateIdentException(ident: Ident) extends CompilerException("(" + ident.pos.line + ":" + ident.pos.column + ") '" + ident.value + "' is already defined\n\n" + ident.pos.longString + "\nAST: " + ident)
   case class InvalidDeclException(decl: Decl) extends CompilerException("(" + decl.pos.line + ":" + decl.pos.column + ") " + decl.pos.longString + "invalid decleration of " + decl + "\n\nAST: " + decl)
@@ -22,6 +22,7 @@ trait ContextCheckers {
   case class ConstModification(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") identifier '" + n.value + "' is const and can not be modified\n\n" + n.pos.longString + "\nAST: " + n);
   case class InStoreInitialization(n: Ident, f: FlowMode) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing " + f.toString().toLowerCase() + " mode store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class LoopedInit(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing store: " + n.value + " inside a loop body\n\n" + n.pos.longString + "\nAST: " + n);
+  case class NoGlobalStoreFound(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") no global store found for imported store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
 
   case class Context(globalVarScope: GlobalStoreScope, localVarScope: LocalStoreScopes, globalMethodScope: GlobalMethodScope)
 
@@ -39,8 +40,8 @@ trait ContextCheckers {
 
   def check(prog: Program): Context = {
     // load global declarations first (so we don't need any forward declarations)
-    loadGlobalCpsDecl(prog.cpsDecl);
     loadProgParams(prog.params);
+    loadGlobalCpsDecl(prog.cpsDecl);
 
     println("Scope loaded: ")
     println(globalStoreScope)
@@ -237,20 +238,29 @@ trait ContextCheckers {
     })
   }
 
-  def loadGlobalCpsDecl(cpsDecl: List[Decl]) = cpsDecl.foreach(decl => loadGlobalDecl(decl))
-  def loadGlobalDecl(decl: Decl) {
-    decl match {
-      case StoreDecl(c, ti) => {
-        // multiple vars with same name
-        if (globalStoreScope.scope.find(s => s.typedIdent.i == ti.i).isDefined) throw DuplicateIdentException(ti.i)
+  def loadGlobalCpsDecl(cpsDecl: List[Decl]) = {
+    // load store decls before methods
+    cpsDecl.foreach(decl => {
+      decl match {
+        case StoreDecl(c, ti) => {
+          // multiple vars with same name
+          if (globalStoreScope.scope.find(s => s.typedIdent.i == ti.i).isDefined) throw DuplicateIdentException(ti.i)
 
-        // init = false => always has to be initialized
-        globalStoreScope.scope += Store(ti, None, Some(c), None, false);
+          // init = false => always has to be initialized
+          globalStoreScope.scope += Store(ti, None, Some(c), None, false);
+        }
+        case _ =>
       }
-      case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, cmd);
-      case ProcDecl(identifier, params, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, cmd);
+    });
 
-    }
+    // load fun/proc decls
+    cpsDecl.foreach(decl => {
+      decl match {
+        case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, imports, cmd);
+        case ProcDecl(identifier, params, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, imports, cmd);
+        case _ =>
+      }
+    });
   }
 
   def checkMethods(cpsDecl: List[Decl]) = cpsDecl.foreach(decl => checkMethod(decl))
@@ -263,7 +273,7 @@ trait ContextCheckers {
     }
   }
 
-  def loadMethodDecl(identifier: Ident, methodDecl: Decl, cpsDecl: List[Decl], paramList: List[Parameter], cpsCmd: List[Cmd]) {
+  def loadMethodDecl(identifier: Ident, methodDecl: Decl, cpsDecl: List[Decl], paramList: List[Parameter], imports: List[GlobImport], cpsCmd: List[Cmd]) {
     // multiple methods with same name
     if (globalMethodScope.decls.contains(identifier)) throw new DuplicateIdentException(identifier)
 
@@ -271,8 +281,30 @@ trait ContextCheckers {
 
     val localScope = localStoreScope.scope.getOrElseUpdate(identifier, new MutableList[Store]());
 
+    loadMethodGlobals(imports, localScope);
     loadLocalParams(paramList, localScope)
     loadLocalCpsDecl(identifier, cpsDecl, localScope)
+  }
+
+  def loadMethodGlobals(imports: List[GlobImport], scope: MutableList[Store]) {
+    imports.foreach(imp => {
+      if (scope.find(x => x.typedIdent.i == imp.i).isDefined) throw DuplicateIdentException(imp.i);
+      
+      globalStoreScope.scope.find(x => x.typedIdent.i == imp.i) match {
+        case None => throw NoGlobalStoreFound(imp.i);
+        case Some(global) => {
+          // get the type from the global store
+          val typedIdent = TypedIdent(imp.i, global.typedIdent.t);
+          typedIdent.pos = imp.i.pos;
+          
+          // in/out stores are initialized by default
+          val initialized = imp.f.forall(f => f == In || f == InOut) 
+          scope += Store(typedIdent, None, imp.c, imp.f,  initialized);
+        }
+      }
+      
+       
+    })
   }
 
   // TODO almost the same as loadLocalParamDecl

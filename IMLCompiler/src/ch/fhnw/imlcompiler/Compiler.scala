@@ -4,8 +4,8 @@ import ch.fhnw.imlcompiler.AST._
 import scala.text._
 import Document._
 
-// TODO somehow differentiate between rvalue and lvalue?
-object Compiler extends IMLParsers with ContextCheckers {
+// TODO what are default modes?
+object Compiler extends IMLParsers with Checkers {
 
   def main(args: Array[String]) {
     //    val p = "program a while x + 1 > (y*3)+42 do endwhile endprogram";

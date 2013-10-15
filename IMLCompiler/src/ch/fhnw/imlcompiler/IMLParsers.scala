@@ -8,7 +8,7 @@ import ch.fhnw.imlcompiler.AST._
 trait IMLParsers extends RegexParsers {
   def program: Parser[Program] = positioned("program" ~ ident ~ progParamList ~ opt("global" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endprogram" ^^ { case "program" ~ id ~ progParamList ~ cpsdecl ~ "do" ~ cmd ~ "endprogram" => Program(progParamList, cpsdecl.getOrElse(Nil), cmd) })
 
-  def atomtype: Parser[Type] = "int" ^^^ { IntType } | "bool" ^^^ { BoolType }
+  def atomtype: Parser[Type] = positioned("int" ^^^ { IntType } | "bool" ^^^ { BoolType })
 
   // commands
   def cmd: Parser[Cmd] = positioned(skipCmd | becomesCmd | ifCmd | whileCmd | callCmd | inputCmd | outputCmd)
@@ -16,7 +16,6 @@ trait IMLParsers extends RegexParsers {
   def becomesCmd: Parser[BecomesCmd] = positioned(expr ~ ":=" ~ expr ^^ { case lhs ~ ":=" ~ rhs => BecomesCmd(lhs, rhs) })
   def ifCmd: Parser[IfCmd] = positioned("if" ~ expr ~ "do" ~ cpsCmd ~ "else" ~ cpsCmd ~ "endif" ^^ { case "if" ~ expr ~ "do" ~ c1 ~ "else" ~ c2 ~ "endif" => IfCmd(expr, c1, c2) })
   def whileCmd: Parser[WhileCmd] = positioned("while" ~ expr ~ "do" ~ cpsCmd ~ "endwhile" ^^ { case "while" ~ t1 ~ "do" ~ c ~ "endwhile" => WhileCmd(t1, c) })
-  // TODO implement globInits
   def callCmd: Parser[CallCmd] = positioned("call" ~ ident ~ tupleExpr ^^ { case "call" ~ i ~ t => CallCmd(i, t) })
   def inputCmd: Parser[InputCmd] = positioned("input" ~> expr ^^ { case e => InputCmd(e) })
   def outputCmd: Parser[OutputCmd] = positioned("output" ~> expr ^^ { case e => OutputCmd(e) })
@@ -24,10 +23,10 @@ trait IMLParsers extends RegexParsers {
   def cpsCmd: Parser[List[Cmd]] = repsep(cmd, ";")
 
   // operators
-  def multOpr: Parser[MultOpr] = "*" ^^^ { TimesOpr } | "div" ^^^ { DivOpr } | "mod" ^^^ { ModOpr }
-  def boolOpr: Parser[BoolOpr] = "&&" ^^^ { Cand } | "||" ^^^ { Cor }
-  def relOpr: Parser[RelOpr] = "==" ^^^ { EQ } | "/=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT }
-  def addOpr: Parser[AddOpr] = "-" ^^^ { MinusOpr } | "+" ^^^ { PlusOpr }
+  def multOpr: Parser[MultOpr] = positioned("*" ^^^ { TimesOpr } | "div" ^^^ { DivOpr } | "mod" ^^^ { ModOpr })
+  def boolOpr: Parser[BoolOpr] = positioned("&&" ^^^ { Cand } | "||" ^^^ { Cor })
+  def relOpr: Parser[RelOpr] = positioned("==" ^^^ { EQ } | "/=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT })
+  def addOpr: Parser[AddOpr] = positioned("-" ^^^ { MinusOpr } | "+" ^^^ { PlusOpr })
 
   // TODO change regex for identifier
   def ident: Parser[Ident] = positioned(raw"[A-Za-z]+[A-Za-z0-9]*".r.withFilter(!AST.keywords.contains(_)).withFailureMessage("identifier expected") ^^ { x => Ident(x.toString()) })
@@ -57,7 +56,7 @@ trait IMLParsers extends RegexParsers {
 
   // decls
   def globImpList: Parser[List[GlobImport]] = repsep(globImport, ",")
-  def globImport: Parser[GlobImport] = positioned(flowMode ~ changeMode ~ ident ^^ { case f ~ c ~ i => GlobImport(f, c, i) })
+  def globImport: Parser[GlobImport] = positioned(opt(flowMode) ~ opt(changeMode) ~ ident ^^ { case f ~ c ~ i => GlobImport(f, c, i) })
   def cpsDecl: Parser[List[Decl]] = repsep(decl, ";")
   def cpsStoreDecl: Parser[List[StoreDecl]] = repsep(stoDecl, ";")
   def decl: Parser[Decl] = positioned(stoDecl | funDecl | procDecl)
