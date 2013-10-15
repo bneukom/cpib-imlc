@@ -65,6 +65,15 @@ trait Checkers {
     }
   }
 
+  //  def lhsOperand(o:Opr) : Type = {
+  //     o match {
+  //      case PlusOpr | MinusOpr => IntType
+  //      case DivOpr | TimesOpr | ModOpr => IntType
+  //      case EQ | NE | GT | LT | GE | LE => IntType
+  //      case Cand | Cor | Not => BoolType
+  //    }
+  //  }
+
   // TODO for lists we need lhs and rhs operand types
   def expectedOperandType(o: Opr): Type = {
     o match {
@@ -289,21 +298,20 @@ trait Checkers {
   def loadMethodGlobals(imports: List[GlobImport], scope: MutableList[Store]) {
     imports.foreach(imp => {
       if (scope.find(x => x.typedIdent.i == imp.i).isDefined) throw DuplicateIdentException(imp.i);
-      
+
       globalStoreScope.scope.find(x => x.typedIdent.i == imp.i) match {
         case None => throw NoGlobalStoreFound(imp.i);
         case Some(global) => {
           // get the type from the global store
           val typedIdent = TypedIdent(imp.i, global.typedIdent.t);
           typedIdent.pos = imp.i.pos;
-          
+
           // in/out stores are initialized by default
-          val initialized = imp.f.forall(f => f == In || f == InOut) 
-          scope += Store(typedIdent, None, imp.c, imp.f,  initialized);
+          val initialized = imp.f.forall(f => f == In || f == InOut)
+          scope += Store(typedIdent, None, imp.c, imp.f, initialized);
         }
       }
-      
-       
+
     })
   }
 

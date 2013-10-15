@@ -8,7 +8,9 @@ import ch.fhnw.imlcompiler.AST._
 trait IMLParsers extends RegexParsers {
   def program: Parser[Program] = positioned("program" ~ ident ~ progParamList ~ opt("global" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endprogram" ^^ { case "program" ~ id ~ progParamList ~ cpsdecl ~ "do" ~ cmd ~ "endprogram" => Program(progParamList, cpsdecl.getOrElse(Nil), cmd) })
 
-  def atomtype: Parser[Type] = positioned("int" ^^^ { IntType } | "bool" ^^^ { BoolType })
+  def typeparser: Parser[Type] = positioned(atomtype | listType)
+  def atomtype: Parser[AtomType] = positioned("int" ^^^ { IntType } | "bool" ^^^ { BoolType })
+  def listType: Parser[ListType] = positioned("[" ~ typeparser ~ "]" ^^ { case "[" ~ t ~ "]" => ListType(t)})
 
   // commands
   def cmd: Parser[Cmd] = positioned(skipCmd | becomesCmd | ifCmd | whileCmd | callCmd | inputCmd | outputCmd)
@@ -27,6 +29,7 @@ trait IMLParsers extends RegexParsers {
   def boolOpr: Parser[BoolOpr] = positioned("&&" ^^^ { Cand } | "||" ^^^ { Cor })
   def relOpr: Parser[RelOpr] = positioned("==" ^^^ { EQ } | "/=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT })
   def addOpr: Parser[AddOpr] = positioned("-" ^^^ { MinusOpr } | "+" ^^^ { PlusOpr })
+  def listOpr: Parser[ListOpr] = positioned("head" ^^^ { HeadOpr } | "tail" ^^^ { TailOpr } | "::" ^^^ { ConcatOpr })
 
   // TODO change regex for identifier
   def ident: Parser[Ident] = positioned(raw"[A-Za-z]+[A-Za-z0-9]*".r.withFilter(!AST.keywords.contains(_)).withFailureMessage("identifier expected") ^^ { x => Ident(x.toString()) })
@@ -44,7 +47,7 @@ trait IMLParsers extends RegexParsers {
 
   def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | "(" ~> expr <~ ")")
 
-  def expr: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
+  def expr: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) } | listOpr ^^ { case op => DyadicExpr(_: Expr, op, _:Expr)}))
   def term1: Parser[Expr] = positioned(term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 })
   def term2: Parser[Expr] = positioned(term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
   def term3: Parser[Expr] = positioned(factor * (multOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
@@ -67,7 +70,7 @@ trait IMLParsers extends RegexParsers {
   // params
   def paramList: Parser[List[Parameter]] = "(" ~> repsep(parameter, ",") <~ ")"
   def parameter: Parser[Parameter] = positioned(opt(flowMode) ~ opt(mechMode) ~ opt(changeMode) ~ typedIdent ^^ { case f ~ m ~ c ~ t => Parameter(f, m, c, t) })
-  def typedIdent: Parser[TypedIdent] = positioned(ident ~ ":" ~ atomtype ^^ { case i ~ ":" ~ t => TypedIdent(i, t) })
+  def typedIdent: Parser[TypedIdent] = positioned(ident ~ ":" ~ typeparser ^^ { case i ~ ":" ~ t => TypedIdent(i, t) })
 
   def progParamList: Parser[List[ProgParameter]] = "(" ~> repsep(progParameter, ",") <~ ")"
   def progParameter: Parser[ProgParameter] = positioned(opt(flowMode) ~ opt(changeMode) ~ typedIdent ^^ { case f ~ c ~ t => ProgParameter(f, c, t) })

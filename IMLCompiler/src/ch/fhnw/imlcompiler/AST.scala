@@ -6,8 +6,8 @@ import sun.org.mozilla.javascript.internal.ast.AstNode
 
 object AST {
 
-  val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init","inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip" ,"then" , "true", "var", "while")
-  
+  val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init", "inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip", "then", "true", "var", "while")
+
   class ASTNode extends Positional
 
   case class Program(params: List[ProgParameter], cpsDecl: List[Decl], cmd: List[Cmd]) extends ASTNode
@@ -59,6 +59,8 @@ object AST {
   case class FunCallExpr(i: Ident, e: TupleExpr) extends Expr;
   case class StoreExpr(i: Ident, isInitialization: Boolean) extends Expr;
   case class LiteralExpr(l: Literal) extends Expr;
+  case class ListExpr(l: List[Either[ListExpr, Literal]])
+  // TODO ListExpr?
 
   abstract sealed class Factor extends ASTNode;
   abstract sealed class Literal extends Factor;
@@ -68,8 +70,9 @@ object AST {
   // type
   sealed class Type extends Positional
   case class ListType(t: Type) extends Type { override def toString() = "[" + t + "]" }
-  case object IntType extends Type { override def toString() = "int32" }
-  case object BoolType extends Type { override def toString() = "bool" }
+  sealed class AtomType extends Type
+  case object IntType extends AtomType { override def toString() = "int32" }
+  case object BoolType extends AtomType { override def toString() = "bool" }
 
   // operators
   abstract sealed class Opr extends Positional
@@ -94,5 +97,10 @@ object AST {
   abstract sealed class AddOpr extends Opr
   case object PlusOpr extends AddOpr { override def toString() = "plus" }
   case object MinusOpr extends AddOpr { override def toString() = "minus" }
+
+  abstract sealed class ListOpr extends Opr
+  case object HeadOpr extends ListOpr { override def toString() = "head" }
+  case object TailOpr extends ListOpr { override def toString() = "head" }
+  case object ConcatOpr extends ListOpr { override def toString() = "::" }
 
 }
