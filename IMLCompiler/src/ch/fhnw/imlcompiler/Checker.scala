@@ -215,7 +215,7 @@ trait Checkers {
 
   def checkParameters(decl: Decl, tupleExpr: TupleExpr, scope: MutableList[Store], looped: Boolean = false) {
     decl match {
-      case StoreDecl(_, i) => throw new CompilerException(i.i + " is not a proc or fun");
+      case StoreDecl(_, i) => throw new CompilerException("internal compiler error");
       case FunDecl(identifier, params, r, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope, looped)
       case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope, looped)
     }
