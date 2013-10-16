@@ -4,13 +4,12 @@ import scala.util.parsing.combinator.RegexParsers
 import scala.util.parsing.combinator.PackratParsers
 import ch.fhnw.imlcompiler.AST._
 
-// TODO positioned for all parsers needed
 trait IMLParsers extends RegexParsers {
   def program: Parser[Program] = positioned("program" ~ ident ~ progParamList ~ opt("global" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endprogram" ^^ { case "program" ~ id ~ progParamList ~ cpsdecl ~ "do" ~ cmd ~ "endprogram" => Program(progParamList, cpsdecl.getOrElse(Nil), cmd) })
 
   def typeparser: Parser[Type] = positioned(atomtype | listType)
   def atomtype: Parser[AtomType] = positioned("int" ^^^ { IntType } | "bool" ^^^ { BoolType })
-  def listType: Parser[ListType] = positioned("[" ~ typeparser ~ "]" ^^ { case "[" ~ t ~ "]" => ListType(t)})
+  def listType: Parser[ListType] = positioned("[" ~ typeparser ~ "]" ^^ { case "[" ~ t ~ "]" => ListType(t) })
 
   // commands
   def cmd: Parser[Cmd] = positioned(skipCmd | becomesCmd | ifCmd | whileCmd | callCmd | inputCmd | outputCmd)
@@ -29,28 +28,39 @@ trait IMLParsers extends RegexParsers {
   def boolOpr: Parser[BoolOpr] = positioned("&&" ^^^ { Cand } | "||" ^^^ { Cor })
   def relOpr: Parser[RelOpr] = positioned("==" ^^^ { EQ } | "/=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT })
   def addOpr: Parser[AddOpr] = positioned("-" ^^^ { MinusOpr } | "+" ^^^ { PlusOpr })
-  def listOpr: Parser[ListOpr] = positioned("head" ^^^ { HeadOpr } | "tail" ^^^ { TailOpr } | "::" ^^^ { ConcatOpr })
+  def listOpr: Parser[MonadicListOpr] = positioned("head" ^^^ { HeadOpr } | "tail" ^^^ { TailOpr })
+  def concatOpr: Parser[DyadicListOpr] = positioned("::" ^^^ { ConcatOpr })
 
-  // TODO change regex for identifier
   def ident: Parser[Ident] = positioned(raw"[A-Za-z]+[A-Za-z0-9]*".r.withFilter(!AST.keywords.contains(_)).withFailureMessage("identifier expected") ^^ { x => Ident(x.toString()) })
 
   // literals
-  def literal: Parser[Literal] = positioned(intLiteral | boolLiteral)
-  def intLiteral: Parser[IntLiteral] = positioned("[0-9]+".r ^^ { x => { IntLiteral(x.toInt) } })
+  def literal: Parser[Literal] = positioned(intLiteral | boolLiteral | listLiteral)
+  def intLiteral: Parser[IntLiteral] = positioned("[0-9]+".r ^^ { x => IntLiteral(x.toInt) })
   def boolLiteral: Parser[BoolLiteral] = positioned(("true" | "false") ^^ { x => BoolLiteral(x.toBoolean) })
-  def notParser: Parser[BoolOpr] = "not" ^^^ { Not }
+  def listLiteral: Parser[ListLiteral] = positioned("[" ~ repsep(literal, ",") ~ "]" ^^ { case "[" ~ l ~ "]" => ListLiteral(l) })
 
   // expressions
-  def monadicExpr: Parser[MonadicExpr] = positioned(monadicAddExpr | monadicNotExpr)
+  def monadicExpr: Parser[MonadicExpr] = positioned(monadicAddExpr | monadicNotExpr | monadicListExpr)
   def monadicAddExpr: Parser[MonadicExpr] = positioned(addOpr ~ factor ^^ { case op ~ exp => MonadicExpr(exp, op) })
-  def monadicNotExpr: Parser[MonadicExpr] = positioned(notParser ~ factor ^^ { case n ~ exp => MonadicExpr(exp, n) })
+  def monadicNotExpr: Parser[MonadicExpr] = positioned("not" ~ factor ^^ { case "not" ~ exp => MonadicExpr(exp, Not) })
+  def monadicListExpr: Parser[MonadicExpr] = positioned(listOpr ~ factor ^^ { case l ~ f => MonadicExpr(f, l) })
 
   def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | "(" ~> expr <~ ")")
 
-  def expr: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) } | listOpr ^^ { case op => DyadicExpr(_: Expr, op, _:Expr)}))
+
+  // TODO | will do backtracking...
+  // TODO best way to create right associative operator?
+  def expr: Parser[Expr] = positioned((term0 ~ concatOpr ~ expr ^^ { case e ~ opr ~ e1 => DyadicExpr(e, opr, e1)}) | term0) 
+  def term0: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
   def term1: Parser[Expr] = positioned(term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 })
   def term2: Parser[Expr] = positioned(term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
   def term3: Parser[Expr] = positioned(factor * (multOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
+
+  //  def expr: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
+  //  def term1: Parser[Expr] = positioned(term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 })
+  //  def term2: Parser[Expr] = positioned(term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
+  //  def term3: Parser[Expr] = positioned(factor * (multOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
+
   def tupleExpr: Parser[TupleExpr] = positioned("(" ~ repsep(expr, ",") ~ ")" ^^ { case "(" ~ e ~ ")" => TupleExpr(e) })
 
   def flowMode: Parser[FlowMode] = positioned("in" ^^^ { In } | "out" ^^^ { Out } | "inout" ^^^ { InOut }).withFailureMessage("flowmode expected")

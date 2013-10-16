@@ -6,7 +6,7 @@ import sun.org.mozilla.javascript.internal.ast.AstNode
 
 object AST {
 
-  val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init", "inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip", "then", "true", "var", "while")
+  val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init", "inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip", "then", "true", "var", "while", "head", "tail")
 
   class ASTNode extends Positional
 
@@ -54,29 +54,35 @@ object AST {
 
   // expressions
   sealed abstract class Expr extends ASTNode
-  case class DyadicExpr(l: Expr, op: Opr, r: Expr) extends Expr
-  case class MonadicExpr(l: Expr, op: Opr) extends Expr
+  case class DyadicExpr(l: Expr, op: DyadicOpr, r: Expr) extends Expr
+  case class MonadicExpr(l: Expr, op: MonadicOpr) extends Expr
   case class FunCallExpr(i: Ident, e: TupleExpr) extends Expr;
   case class StoreExpr(i: Ident, isInitialization: Boolean) extends Expr;
   case class LiteralExpr(l: Literal) extends Expr;
-  case class ListExpr(l: List[Either[ListExpr, Literal]])
+
   // TODO ListExpr?
 
   abstract sealed class Factor extends ASTNode;
   abstract sealed class Literal extends Factor;
   case class IntLiteral(v: Int) extends Literal
   case class BoolLiteral(v: Boolean) extends Literal
+  case class ListLiteral(l: List[Literal]) extends Literal
 
   // type
-  sealed class Type extends Positional
-  case class ListType(t: Type) extends Type { override def toString() = "[" + t + "]" }
+  sealed class Type extends Positional { def isAssignableTo(t: Type) = this == t }
+  case class ListType(t: Type) extends Type { override def toString() = "[" + t + "]"; override def isAssignableTo(t:Type) =  this == t || t == EmptyListType; }
+  case object EmptyListType extends Type { override def toString() = "Nil"; override def isAssignableTo(t:Type) =  t.isInstanceOf[ListType]}
+
   sealed class AtomType extends Type
   case object IntType extends AtomType { override def toString() = "int32" }
   case object BoolType extends AtomType { override def toString() = "bool" }
 
   // operators
   abstract sealed class Opr extends Positional
-  abstract sealed class RelOpr extends Opr;
+  abstract sealed trait MonadicOpr extends Opr;
+  abstract sealed trait DyadicOpr extends Opr;
+
+  abstract sealed class RelOpr extends Opr with DyadicOpr
   case object EQ extends RelOpr;
   case object NE extends RelOpr;
   case object GT extends RelOpr;
@@ -84,23 +90,26 @@ object AST {
   case object GE extends RelOpr;
   case object LE extends RelOpr;
 
-  abstract sealed class BoolOpr extends Opr;
-  case object Cand extends BoolOpr;
-  case object Cor extends BoolOpr;
-  case object Not extends BoolOpr;
+  abstract sealed class BoolOpr extends Opr with DyadicOpr;
+  case object Cand extends BoolOpr
+  case object Cor extends BoolOpr
+  case object Not extends Opr with MonadicOpr; // TODO not a boolopr?
 
-  abstract sealed class MultOpr extends Opr
+  abstract sealed class MultOpr extends Opr with DyadicOpr
   case object DivOpr extends MultOpr { override def toString() = "div" }
   case object TimesOpr extends MultOpr { override def toString() = "times" }
   case object ModOpr extends MultOpr { override def toString() = "mod" }
 
-  abstract sealed class AddOpr extends Opr
+  abstract sealed class AddOpr extends Opr with DyadicOpr with MonadicOpr
   case object PlusOpr extends AddOpr { override def toString() = "plus" }
   case object MinusOpr extends AddOpr { override def toString() = "minus" }
 
-  abstract sealed class ListOpr extends Opr
-  case object HeadOpr extends ListOpr { override def toString() = "head" }
-  case object TailOpr extends ListOpr { override def toString() = "head" }
-  case object ConcatOpr extends ListOpr { override def toString() = "::" }
+  abstract sealed class MonadicListOpr extends Opr with MonadicOpr
+  case object HeadOpr extends MonadicListOpr { override def toString() = "head" }
+  case object TailOpr extends MonadicListOpr { override def toString() = "tail" }
+  case object SizeOpr extends MonadicListOpr { override def toString() = "size" }
+
+  abstract sealed class DyadicListOpr extends Opr with DyadicOpr
+  case object ConcatOpr extends DyadicListOpr { override def toString() = "::" }
 
 }

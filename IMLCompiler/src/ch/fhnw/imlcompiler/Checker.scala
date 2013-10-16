@@ -58,24 +58,7 @@ trait Checkers {
     return Context(globalStoreScope, localStoreScope, globalMethodScope)
   }
 
-  def getType(l: Literal): Type = {
-    l match {
-      case IntLiteral(_) => IntType
-      case BoolLiteral(_) => BoolType
-    }
-  }
-
-  //  def lhsOperand(o:Opr) : Type = {
-  //     o match {
-  //      case PlusOpr | MinusOpr => IntType
-  //      case DivOpr | TimesOpr | ModOpr => IntType
-  //      case EQ | NE | GT | LT | GE | LE => IntType
-  //      case Cand | Cor | Not => BoolType
-  //    }
-  //  }
-
-  // TODO for lists we need lhs and rhs operand types
-  def expectedOperandType(o: Opr): Type = {
+  def operandType(o: Opr): Type = {
     o match {
       case PlusOpr | MinusOpr => IntType
       case DivOpr | TimesOpr | ModOpr => IntType
@@ -84,11 +67,54 @@ trait Checkers {
     }
   }
 
+  def returnType(l: Literal): Type = {
+    l match {
+      case IntLiteral(_) => IntType
+      case BoolLiteral(_) => BoolType
+      case ListLiteral(t) => if (t.headOption.isDefined) ListType(returnType(t.head)) else EmptyListType // TODO what if no head?
+    }
+  }
+
+  def dyadicReturnType(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: MutableList[Store]) = {
+    o match {
+      case PlusOpr | MinusOpr => IntType
+      case DivOpr | TimesOpr | ModOpr => IntType
+      case EQ | NE | GT | LT | GE | LE => BoolType
+      case Cand | Cor => BoolType
+      case ConcatOpr => returnType(rhs, scope)
+    }
+  }
+
+  def monadicReturnType(o: MonadicOpr, rhs: Expr, scope: MutableList[Store]) = {
+    o match {
+      case PlusOpr | MinusOpr => IntType
+      case Not => BoolType
+      case HeadOpr => {
+        val rhsReturn = returnType(rhs, scope);
+        rhsReturn match {
+          case ListType(t) => t
+          case _ => throw new CompilerException("what?"); // TODO
+        }
+      }
+      case TailOpr => returnType(rhs, scope);
+      case SizeOpr => IntType
+    }
+  }
+
+  //  def returnType(o: Opr): Type = {
+  //    o match {
+  //      case PlusOpr | MinusOpr => IntType
+  //      case DivOpr | TimesOpr | ModOpr => IntType
+  //      case EQ | NE | GT | LT | GE | LE => BoolType
+  //      case Cand | Cor | Not => BoolType
+  //    }
+  //  }
+
   def returnType(e: Expr, scope: MutableList[Store]): Type = {
     e match {
-      case DyadicExpr(_, opr, _) => returnType(opr)
-      case MonadicExpr(_, opr) => returnType(opr)
-      case LiteralExpr(l) => getType(l)
+      case DyadicExpr(lhs, opr, rhs) => dyadicReturnType(lhs, opr, rhs, scope)
+      case MonadicExpr(rhs, opr) => monadicReturnType(opr, rhs, scope)
+      case LiteralExpr(l) => returnType(l)
       case StoreExpr(i, _) => {
         scope.find(x => x.typedIdent.i == i) match {
           case None => throw UndefinedVariableException(i);
@@ -109,28 +135,33 @@ trait Checkers {
     }
   }
 
-  def returnType(o: Opr): Type = {
-    o match {
-      case PlusOpr | MinusOpr => IntType
-      case DivOpr | TimesOpr | ModOpr => IntType
-      case EQ | NE | GT | LT | GE | LE => BoolType
-      case Cand | Cor | Not => BoolType
-    }
-  }
-
   // TODO branched initialization (what if store was initialized only in if block or if and else both?)
   def checkExpr(e: Expr, scope: MutableList[Store], lvalue: Boolean = false, loopedExpr: Boolean = false) {
+    // TODO pass if is lvalue and looped expr to ckeckExpr sub calls?
     e match {
+      case DyadicExpr(lhs, opr: DyadicListOpr, rhs) => {
+        checkExpr(rhs, scope);
+        
+        val r = returnType(rhs, scope)
+        val l = returnType (lhs,scope);
+        r match {
+          case ListType(t) => if (l != t) throw TypeMismatchError(e, t, l)
+          case _ => throw TypeMismatchError(e, r, l)
+        }
+      }
+      case MonadicExpr(lhs, opr: MonadicListOpr) => {}
       case DyadicExpr(lhs, opr, rhs) =>
         checkExpr(lhs, scope);
         checkExpr(rhs, scope);
-        if (returnType(lhs, scope) != expectedOperandType(opr)) throw TypeMismatchError(e, expectedOperandType(opr), returnType(lhs, scope))
-        if (returnType(rhs, scope) != expectedOperandType(opr)) throw TypeMismatchError(e, expectedOperandType(opr), returnType(rhs, scope))
+        if (returnType(lhs, scope) != operandType(opr)) throw TypeMismatchError(e, operandType(opr), returnType(lhs, scope))
+        if (returnType(rhs, scope) != operandType(opr)) throw TypeMismatchError(e, operandType(opr), returnType(rhs, scope))
       case MonadicExpr(lhs, opr) =>
         checkExpr(lhs, scope);
-        if (returnType(lhs, scope) != expectedOperandType(opr)) throw TypeMismatchError(e, expectedOperandType(opr), returnType(opr))
-      case LiteralExpr(_) => {}
-      case FunCallExpr(_, el) => {} // TODO type of every expression must be compatible with target type from function and also expression must not have type errors
+        if (returnType(lhs, scope) != operandType(opr)) throw TypeMismatchError(e, operandType(opr), returnType(lhs, scope))
+      case LiteralExpr(_) => {
+        // TODO check list!
+      }
+      case FunCallExpr(_, el) =>
       case StoreExpr(i, init) => {
         scope.find(s => s.typedIdent.i == i) match {
           case None => throw UndefinedVariableException(i);
@@ -176,7 +207,7 @@ trait Checkers {
         checkExpr(rhs, scope, loopedExpr = loopedCmd);
 
         // TODO lhs must not be declared const!
-        if (returnType(lhs, scope) != returnType(rhs, scope)) throw TypeMismatchError(cmd, returnType(lhs, scope), returnType(rhs, scope))
+        if (!returnType(lhs, scope).isAssignableTo(returnType(rhs, scope))) throw TypeMismatchError(cmd, returnType(lhs, scope), returnType(rhs, scope))
       }
       case SkipCmd() => {}
       case CallCmd(i, t) => {

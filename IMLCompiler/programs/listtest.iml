@@ -1,0 +1,7 @@
+program listTest()
+global
+ var a:[bool]
+do
+ a init := [true];
+ a := 1:: true :: a
+endprogram

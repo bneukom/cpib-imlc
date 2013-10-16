@@ -21,8 +21,6 @@ global
  endproc;
  
  var b:bool;
- var l:[int]
 do
-  l init := 1 :: l;
   call divide(m, n, q init, r init)
 endprogram
