@@ -60,8 +60,6 @@ object AST {
   case class StoreExpr(i: Ident, isInitialization: Boolean) extends Expr;
   case class LiteralExpr(l: Literal) extends Expr;
 
-  // TODO ListExpr?
-
   abstract sealed class Factor extends ASTNode;
   abstract sealed class Literal extends Factor;
   case class IntLiteral(v: Int) extends Literal
@@ -69,13 +67,43 @@ object AST {
   case class ListLiteral(l: List[Literal]) extends Literal
 
   // type
-  sealed class Type extends Positional { def isAssignableTo(t: Type) = this == t }
-  case class ListType(t: Type) extends Type { override def toString() = "[" + t + "]"; override def isAssignableTo(t:Type) =  this == t || t == EmptyListType; }
-  case object EmptyListType extends Type { override def toString() = "Nil"; override def isAssignableTo(t:Type) =  t.isInstanceOf[ListType]}
+  abstract sealed class Type extends Positional {
+    def matches(other: Type): Boolean = this == other
+  }
+  case class ListType(t: Type) extends Type {
+    override def toString() = "[" + t + "]";
+    override def matches(other: Type): Boolean = {
+      // [[[int]]] should also match [int|bool] or [[int|bool]] etc.
+      if (deepType(other) == Any && listLevel(other) <= listLevel(this)) return true;
 
-  sealed class AtomType extends Type
-  case object IntType extends AtomType { override def toString() = "int32" }
+      other match {
+        case ListType(otherType) => otherType.matches(t);
+        case _ => other.matches(this);
+      }
+    }
+
+    def listLevel(l: Type, level: Int = 0): Int = {
+      l match {
+        case ListType(i) => return listLevel(i, level + 1);
+        case _ => level
+      }
+    }
+
+    def deepType(l: Type): Type = {
+      l match {
+        case ListType(i) => return deepType(i)
+        case _ => l
+      }
+    }
+  }
+
+  sealed class AtomType extends Type { override def matches(other: Type) = other == this || other == Any }
+  case object IntType extends AtomType { override def toString() = "int" }
   case object BoolType extends AtomType { override def toString() = "bool" }
+  case object Any extends AtomType {
+    override def toString() = IntType.toString + "|" + BoolType.toString
+    override def matches(other: Type) = other.isInstanceOf[AtomType]
+  }
 
   // operators
   abstract sealed class Opr extends Positional
@@ -112,4 +140,12 @@ object AST {
   abstract sealed class DyadicListOpr extends Opr with DyadicOpr
   case object ConcatOpr extends DyadicListOpr { override def toString() = "::" }
 
+  def main(args: Array[String]) {
+    val l1 = ListType(ListType(ListType(IntType)))
+    val l2 = ListType(ListType(IntType))
+
+    println(l1 + " matches " + l2 + ": " + l1.matches(l2))
+    println(l2 + " matches " + l1 + ": " + l2.matches(l1))
+
+  }
 }

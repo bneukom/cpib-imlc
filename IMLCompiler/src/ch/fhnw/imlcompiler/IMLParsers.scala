@@ -47,10 +47,9 @@ trait IMLParsers extends RegexParsers {
 
   def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | "(" ~> expr <~ ")")
 
-
   // TODO | will do backtracking...
   // TODO best way to create right associative operator?
-  def expr: Parser[Expr] = positioned((term0 ~ concatOpr ~ expr ^^ { case e ~ opr ~ e1 => DyadicExpr(e, opr, e1)}) | term0) 
+  def expr: Parser[Expr] = positioned((term0 ~ concatOpr ~ expr ^^ { case e ~ opr ~ e1 => DyadicExpr(e, opr, e1) }) | term0)
   def term0: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
   def term1: Parser[Expr] = positioned(term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 })
   def term2: Parser[Expr] = positioned(term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
@@ -90,6 +89,13 @@ trait IMLParsers extends RegexParsers {
   def parse(i: String): Program = {
     parseAll(program, i) match {
       case Success(result: Program, _) => return result
+      case failure: NoSuccess => throw ParseException("Parser Error at " + failure.next.pos.line + ":" + failure.next.pos.column + "\n" + failure.next.pos.longString + "\nMessage: " + failure.msg) // "at " + n.pos.line + ":" + n.pos.column + "\n" + n.pos.longString + 
+    }
+  }
+
+  def parser[T](i: String, p: Parser[T]): T = {
+    parseAll(p, i) match {
+      case Success(result, _) => return result
       case failure: NoSuccess => throw ParseException("Parser Error at " + failure.next.pos.line + ":" + failure.next.pos.column + "\n" + failure.next.pos.longString + "\nMessage: " + failure.msg) // "at " + n.pos.line + ":" + n.pos.column + "\n" + n.pos.longString + 
     }
   }

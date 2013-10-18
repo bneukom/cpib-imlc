@@ -71,8 +71,52 @@ trait Checkers {
     l match {
       case IntLiteral(_) => IntType
       case BoolLiteral(_) => BoolType
-      case ListLiteral(t) => if (t.headOption.isDefined) ListType(returnType(t.head)) else EmptyListType // TODO what if no head?
+      case list: ListLiteral => listType(list)._1
     }
+  }
+
+  def listType(list: ListLiteral, depth: Int = 0): (ListType, Int) = {
+
+    val children = MutableList[Tuple2[ListType, Int]]();
+
+    for (e <- list.l) {
+
+      children += (e match {
+        case s: ListLiteral => {
+          val l = listType(s, depth + 1)
+
+          (ListType(l._1), l._2);
+        }
+        case IntLiteral(_) => (ListType(IntType), depth)
+        case BoolLiteral(_) => (ListType(BoolType), depth)
+      })
+    }
+
+    val sorted = children.sortWith((a, b) => {
+      // if level is the same real types are higher (Int and Bool) than Any
+      if (a._2 == b._2) deepType(a._1) != Any && deepType(b._1) == Any
+      else a._2 > b._2
+    });
+
+    if (!sorted.isEmpty) sorted.head else (ListType(Any), depth);
+  }
+
+  def deepType(l: Type): Type = {
+    l match {
+      case ListType(i) => return deepType(i)
+      case _ => l
+    }
+  }
+
+  def depth(list: ListLiteral, d: Int, maxDepth: Int): Int = {
+    for (e <- list.l) {
+      e match {
+        case s: ListLiteral => return depth(s, d + 1, if (d + 1 > maxDepth) d + 1 else maxDepth)
+        case _ =>
+      }
+    }
+
+    return maxDepth + 1;
   }
 
   def dyadicReturnType(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: MutableList[Store]) = {
@@ -81,7 +125,7 @@ trait Checkers {
       case DivOpr | TimesOpr | ModOpr => IntType
       case EQ | NE | GT | LT | GE | LE => BoolType
       case Cand | Cor => BoolType
-      case ConcatOpr => returnType(rhs, scope)
+      case ConcatOpr => ListType(returnType(lhs, scope))
     }
   }
 
@@ -100,15 +144,6 @@ trait Checkers {
       case SizeOpr => IntType
     }
   }
-
-  //  def returnType(o: Opr): Type = {
-  //    o match {
-  //      case PlusOpr | MinusOpr => IntType
-  //      case DivOpr | TimesOpr | ModOpr => IntType
-  //      case EQ | NE | GT | LT | GE | LE => BoolType
-  //      case Cand | Cor | Not => BoolType
-  //    }
-  //  }
 
   def returnType(e: Expr, scope: MutableList[Store]): Type = {
     e match {
@@ -141,12 +176,13 @@ trait Checkers {
     e match {
       case DyadicExpr(lhs, opr: DyadicListOpr, rhs) => {
         checkExpr(rhs, scope);
-        
+
         val r = returnType(rhs, scope)
-        val l = returnType (lhs,scope);
+        val l = returnType(lhs, scope);
+
         r match {
-          case ListType(t) => if (l != t) throw TypeMismatchError(e, t, l)
-          case _ => throw TypeMismatchError(e, r, l)
+          case ListType(t) => if (!t.matches(l)) throw TypeMismatchError(e, t, l)
+          case _ => throw TypeMismatchError(e, ListType(l), r)
         }
       }
       case MonadicExpr(lhs, opr: MonadicListOpr) => {}
@@ -158,8 +194,11 @@ trait Checkers {
       case MonadicExpr(lhs, opr) =>
         checkExpr(lhs, scope);
         if (returnType(lhs, scope) != operandType(opr)) throw TypeMismatchError(e, operandType(opr), returnType(lhs, scope))
-      case LiteralExpr(_) => {
-        // TODO check list!
+      case LiteralExpr(e) => {
+        e match {
+          case l: ListLiteral => checkListLiteral(l)
+          case _ =>
+        }
       }
       case FunCallExpr(_, el) =>
       case StoreExpr(i, init) => {
@@ -191,23 +230,28 @@ trait Checkers {
     }
   }
 
-  /**
-   * Checks a composition of commands (main or method)
-   */
   def checkCpsCmd(cpsCmd: List[Cmd], scope: MutableList[Store], loopedCmd: Boolean = false) = {
     cpsCmd.foreach(cmd => checkCmd(cmd, scope, loopedCmd))
   }
   def checkCmd(cmd: Cmd, scope: MutableList[Store], loopedCmd: Boolean = false) {
     cmd match {
       case BecomesCmd(lhs, rhs) => {
-        lhs match {
-          case StoreExpr(expr, isInit) => checkExpr(lhs, scope, true, loopedCmd);
-          case _ => throw InvalidLValue(lhs);
-        }
+        // rhs must be checked before lhs due to the possibility of uninitialized stores
         checkExpr(rhs, scope, loopedExpr = loopedCmd);
 
-        // TODO lhs must not be declared const!
-        if (!returnType(lhs, scope).isAssignableTo(returnType(rhs, scope))) throw TypeMismatchError(cmd, returnType(lhs, scope), returnType(rhs, scope))
+        lhs match {
+          case StoreExpr(expr, isInit) => {
+            // TODO check for const
+            checkExpr(lhs, scope, true, loopedCmd);
+          }
+          case _ => throw InvalidLValue(lhs);
+        }
+
+        val typeRhs = returnType(rhs, scope);
+        val typeLhs = returnType(lhs, scope);
+        if (!typeLhs.matches(typeRhs)) {
+          throw TypeMismatchError(cmd, typeLhs, typeRhs)
+        }
       }
       case SkipCmd() => {}
       case CallCmd(i, t) => {
@@ -242,6 +286,21 @@ trait Checkers {
       }
 
     }
+  }
+
+  def checkListLiteral(listLiteral: ListLiteral) {
+    listLiteral.l.foreach(l => {
+      l match {
+        case sub: ListLiteral => checkListLiteral(sub)
+        case _ =>
+      }
+
+      val ret = returnType(l)
+      listLiteral.l.foreach(l2 => {
+        val ret2 = returnType(l2)
+        if (!ret.matches(ret2)) throw TypeMismatchError(l, ret, ret2);
+      })
+    })
   }
 
   def checkParameters(decl: Decl, tupleExpr: TupleExpr, scope: MutableList[Store], looped: Boolean = false) {
@@ -384,4 +443,5 @@ trait Checkers {
       case _ => throw InvalidDeclException(decl);
     }
   }
+
 }

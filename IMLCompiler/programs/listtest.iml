@@ -1,7 +1,8 @@
 program listTest()
 global
- var a:[bool]
+ var a:[int];
+ var b:int
 do
- a init := [true];
- a := 1:: true :: a
+ b init:= 3 + 42;
+ a init:= [b]
 endprogram
