@@ -1,8 +1,9 @@
 program listTest()
 global
- var a:[int];
- var b:int
+ var a:[[int]];
+ var b:[int]
 do
- b init:= 3 + 42;
- a init:= [b]
+ b init := [3, 4];
+ a init := [[3], b, []];
+ a := [[[52, 3015 * 5], [3]]]
 endprogram

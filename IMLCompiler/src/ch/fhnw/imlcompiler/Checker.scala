@@ -67,29 +67,37 @@ trait Checkers {
     }
   }
 
-  def returnType(l: Literal): Type = {
+  def returnType(l: Literal, scope: MutableList[Store]): Type = {
     l match {
       case IntLiteral(_) => IntType
       case BoolLiteral(_) => BoolType
-      case list: ListLiteral => listType(list)._1
+      case list: ListLiteral => listType(list, scope)._1
     }
   }
 
-  def listType(list: ListLiteral, depth: Int = 0): (ListType, Int) = {
+  def listType(list: ListLiteral, scope: MutableList[Store], depth: Int = 0): (Type, Int) = {
 
-    val children = MutableList[Tuple2[ListType, Int]]();
+    val children = MutableList[Tuple2[Type, Int]]();
 
     for (e <- list.l) {
 
-      children += (e match {
-        case s: ListLiteral => {
-          val l = listType(s, depth + 1)
+      val retType = returnType(e, scope)
+      children += (
+        e match {
+          case LiteralExpr(lit) => {
+            lit match {
+              case s: ListLiteral => {
+                val l = listType(s, scope, depth + 1)
 
-          (ListType(l._1), l._2);
-        }
-        case IntLiteral(_) => (ListType(IntType), depth)
-        case BoolLiteral(_) => (ListType(BoolType), depth)
-      })
+                (ListType(l._1), l._2);
+              }
+              case IntLiteral(_) => (ListType(IntType), depth)
+              case BoolLiteral(_) => (ListType(BoolType), depth)
+            }
+          }
+          case e => (ListType(returnType(e, scope)), depth)
+
+        })
     }
 
     val sorted = children.sortWith((a, b) => {
@@ -106,17 +114,6 @@ trait Checkers {
       case ListType(i) => return deepType(i)
       case _ => l
     }
-  }
-
-  def depth(list: ListLiteral, d: Int, maxDepth: Int): Int = {
-    for (e <- list.l) {
-      e match {
-        case s: ListLiteral => return depth(s, d + 1, if (d + 1 > maxDepth) d + 1 else maxDepth)
-        case _ =>
-      }
-    }
-
-    return maxDepth + 1;
   }
 
   def dyadicReturnType(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: MutableList[Store]) = {
@@ -149,7 +146,7 @@ trait Checkers {
     e match {
       case DyadicExpr(lhs, opr, rhs) => dyadicReturnType(lhs, opr, rhs, scope)
       case MonadicExpr(rhs, opr) => monadicReturnType(opr, rhs, scope)
-      case LiteralExpr(l) => returnType(l)
+      case LiteralExpr(l) => returnType(l, scope)
       case StoreExpr(i, _) => {
         scope.find(x => x.typedIdent.i == i) match {
           case None => throw UndefinedVariableException(i);
@@ -196,7 +193,7 @@ trait Checkers {
         if (returnType(lhs, scope) != operandType(opr)) throw TypeMismatchError(e, operandType(opr), returnType(lhs, scope))
       case LiteralExpr(e) => {
         e match {
-          case l: ListLiteral => checkListLiteral(l)
+          case l: ListLiteral => checkListLiteral(l, scope, lvalue, loopedExpr)
           case _ =>
         }
       }
@@ -288,17 +285,14 @@ trait Checkers {
     }
   }
 
-  def checkListLiteral(listLiteral: ListLiteral) {
-    listLiteral.l.foreach(l => {
-      l match {
-        case sub: ListLiteral => checkListLiteral(sub)
-        case _ =>
-      }
+  def checkListLiteral(listLiteral: ListLiteral, scope: MutableList[Store], lvalue: Boolean = false, loopedExpr: Boolean = false) {
+    listLiteral.l.foreach(e => {
+      checkExpr(e, scope, lvalue, loopedExpr)
 
-      val ret = returnType(l)
-      listLiteral.l.foreach(l2 => {
-        val ret2 = returnType(l2)
-        if (!ret.matches(ret2)) throw TypeMismatchError(l, ret, ret2);
+      val ret = returnType(e, scope)
+      listLiteral.l.foreach(e2 => {
+        val ret2 = returnType(e2, scope)
+        if (!ret.matches(ret2)) throw TypeMismatchError(e, ret, ret2);
       })
     })
   }

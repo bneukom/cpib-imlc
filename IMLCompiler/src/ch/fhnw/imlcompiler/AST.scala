@@ -64,7 +64,7 @@ object AST {
   abstract sealed class Literal extends Factor;
   case class IntLiteral(v: Int) extends Literal
   case class BoolLiteral(v: Boolean) extends Literal
-  case class ListLiteral(l: List[Literal]) extends Literal
+  case class ListLiteral(l: List[Expr]) extends Literal
 
   // type
   abstract sealed class Type extends Positional {
@@ -101,7 +101,8 @@ object AST {
   case object IntType extends AtomType { override def toString() = "int" }
   case object BoolType extends AtomType { override def toString() = "bool" }
   case object Any extends AtomType {
-    override def toString() = IntType.toString + "|" + BoolType.toString
+    //    override def toString() = IntType.toString + "|" + BoolType.toString
+    override def toString() = "any"
     override def matches(other: Type) = other.isInstanceOf[AtomType]
   }
 
