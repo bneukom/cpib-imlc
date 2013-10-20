@@ -9,7 +9,7 @@ import ch.fhnw.imlcompiler.AST._
 trait Checkers {
 
   case class DuplicateIdentException(ident: Ident) extends CompilerException("(" + ident.pos.line + ":" + ident.pos.column + ") '" + ident.value + "' is already defined\n\n" + ident.pos.longString + "\nAST: " + ident)
-  case class InvalidDeclException(decl: Decl) extends CompilerException("(" + decl.pos.line + ":" + decl.pos.column + ") " + decl.pos.longString + "invalid decleration of " + decl + "\n\nAST: " + decl)
+  case class InvalidDeclException(decl: Decl) extends CompilerException("(" + decl.pos.line + ":" + decl.pos.column + ") invalid decleration of " + decl.getClass().getSimpleName + "\n\n" + decl.pos.longString + "\nAST: " + decl)
   case class TypeMismatchError(n: ASTNode, required: Type, found: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") type mismatch; found: " + found + " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n)
   case class UndefinedVariableException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined variable '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class UndefinedMethodException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined method '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
@@ -72,6 +72,7 @@ trait Checkers {
         val expectedType = t match {
           case PlusOpr | MinusOpr | DivOpr | TimesOpr | ModOpr | EQ | NE | GT | LT | GE | LE => IntType
           case Cand | Cor => BoolType
+          case _ => throw new CompilerException("internal compiler error");
         }
 
         if (!returnType(lhs, scope).matches(expectedType)) throw TypeMismatchError(lhs, expectedType, lhsType)
@@ -84,8 +85,11 @@ trait Checkers {
     val rhsType = returnType(rhs, scope);
 
     o match {
+      case MinusOpr | PlusOpr => {
+        if (!returnType(rhs, scope).matches(IntType)) throw TypeMismatchError(rhs, IntType, rhsType)
+      }
       case HeadOpr | TailOpr | SizeOpr => {
-        // TODO any not always correct here (any "only" matches int|bool but here a list would also be possible)
+        // TODO minor error: any not always correct here (any "only" matches int|bool but here a list would also be possible)
         rhsType match { case ListType(x) => {} case invalid => throw TypeMismatchError(rhs, ListType(Any), rhsType) }
       }
       case Not => {
@@ -128,7 +132,7 @@ trait Checkers {
     }
 
     val sorted = children.sortWith((a, b) => {
-      // if level is the same real types are higher (Int and Bool) than Any
+      // if level is the same real types (Int and Bool) are before Any
       if (a._2 == b._2) deepType(a._1) != Any && deepType(b._1) == Any
       else a._2 > b._2
     });
@@ -181,7 +185,7 @@ trait Checkers {
         }
       }
       case FunCallExpr(i, _) => {
-        globalMethodScope.decls.find(x => x == i) match {
+        globalMethodScope.decls.find(x => x._1 == i) match {
           case None => throw UndefinedMethodException(i)
           case Some(m) => {
             m._2 match {
@@ -213,7 +217,14 @@ trait Checkers {
           case _ =>
         }
       }
-      case FunCallExpr(_, el) =>
+      case FunCallExpr(ident, tupleExpr) => {
+        globalMethodScope.decls.get(ident) match {
+          case None => throw UndefinedMethodException(ident)
+          case Some(decl) => {
+            checkParameters(decl, tupleExpr, scope, loopedExpr);
+          }
+        }
+      }
       case StoreExpr(i, init) => {
         scope.find(s => s.typedIdent.i == i) match {
           case None => throw UndefinedVariableException(i);
@@ -243,9 +254,11 @@ trait Checkers {
     }
   }
 
+  // TODO this method is no more needed
   def checkCpsCmd(cpsCmd: List[Cmd], scope: MutableList[Store], loopedCmd: Boolean = false) = {
     cpsCmd.foreach(cmd => checkCmd(cmd, scope, loopedCmd))
   }
+
   def checkCmd(cmd: Cmd, scope: MutableList[Store], loopedCmd: Boolean = false) {
     cmd match {
       case BecomesCmd(lhs, rhs) => {
@@ -370,8 +383,14 @@ trait Checkers {
 
     // load fun/proc decls
     cpsDecl.foreach(decl => {
+
       decl match {
-        case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, imports, cmd);
+        case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => {
+          loadMethodDecl(identifier, decl, cpsDecl, params, imports, cmd);
+
+          // also load return value into local scope (IML40)
+          loadLocalDecl(ret.ti.i, ret, localStoreScope.scope.getOrElseUpdate(identifier, new MutableList[Store]()))
+        }
         case ProcDecl(identifier, params, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, imports, cmd);
         case _ =>
       }
@@ -444,6 +463,7 @@ trait Checkers {
     })
   }
 
+  // TODO this method is no more needed
   def loadLocalCpsDecl(ident: Ident, cpsDecl: List[Decl], scope: MutableList[Store]) = {
     cpsDecl.foreach(decl => loadLocalDecl(ident, decl, scope))
   }

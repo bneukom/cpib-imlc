@@ -6,7 +6,7 @@ import sun.org.mozilla.javascript.internal.ast.AstNode
 
 object AST {
 
-  val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init", "inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip", "then", "true", "var", "while", "head", "tail")
+  val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init", "inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip", "then", "true", "var", "while", "head", "tail", "size")
 
   class ASTNode extends Positional
 
@@ -100,6 +100,8 @@ object AST {
   sealed class AtomType extends Type { override def matches(other: Type) = other == this || other == Any }
   case object IntType extends AtomType { override def toString() = "int" }
   case object BoolType extends AtomType { override def toString() = "bool" }
+  
+  // phantom type
   case object Any extends AtomType {
     //    override def toString() = IntType.toString + "|" + BoolType.toString
     override def toString() = "any"

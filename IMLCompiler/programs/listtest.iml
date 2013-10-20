@@ -3,5 +3,5 @@ global
  var a:[int]
 do
  a init := (head tail [3,4,5]) :: [];
- a := [3, 4 * 42, head a + 1]
+ a := [3, 4 * 42, head a + 1, 3 * 3 - head tail tail a]
 endprogram

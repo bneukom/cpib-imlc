@@ -1,0 +1,33 @@
+program listSum()
+global
+fun sum(in copy l:[int]) returns var r:int
+do
+	if size l == 0 do
+		r init := 0
+	else
+		r := head l + sum(tail tail tail l) // init should be allowed (and must actually be there)
+	endif
+endfun;
+var sum:int;
+var primes:[int]
+do
+ 	primes init := [x | x from 0 to 1000 where isPrime(x)]
+	sum init := sum([p | p from 0 to 1000 where isPrime(p)])
+endprogram
+
+// AST translated into something like this
+var $x1:int;
+var $$l1:[int];
+$x1 init := 0;
+$$l1 init := []
+
+while $x1 < 1000 do
+	if isPrime(x)
+		l1 := $x1 :: l1;
+	else 
+		skip;
+	endif;
+	$x1 := $x1 + 1 // oder $x1 := $x1 - 1 falls end > start 
+endwhile
+
+primes init := $$l1;

@@ -5,6 +5,10 @@ import scala.util.parsing.combinator.PackratParsers
 import ch.fhnw.imlcompiler.AST._
 
 trait IMLParsers extends RegexParsers {
+
+  // from: http://stackoverflow.com/questions/5952720/ignoring-c-style-comments-in-a-scala-combinator-parser
+  protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
+
   def program: Parser[Program] = positioned("program" ~ ident ~ progParamList ~ opt("global" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endprogram" ^^ { case "program" ~ id ~ progParamList ~ cpsdecl ~ "do" ~ cmd ~ "endprogram" => Program(progParamList, cpsdecl.getOrElse(Nil), cmd) })
 
   def typeparser: Parser[Type] = positioned(atomtype | listType)
@@ -17,7 +21,7 @@ trait IMLParsers extends RegexParsers {
   def becomesCmd: Parser[BecomesCmd] = positioned(expr ~ ":=" ~ expr ^^ { case lhs ~ ":=" ~ rhs => BecomesCmd(lhs, rhs) })
   def ifCmd: Parser[IfCmd] = positioned("if" ~ expr ~ "do" ~ cpsCmd ~ "else" ~ cpsCmd ~ "endif" ^^ { case "if" ~ expr ~ "do" ~ c1 ~ "else" ~ c2 ~ "endif" => IfCmd(expr, c1, c2) })
   def whileCmd: Parser[WhileCmd] = positioned("while" ~ expr ~ "do" ~ cpsCmd ~ "endwhile" ^^ { case "while" ~ t1 ~ "do" ~ c ~ "endwhile" => WhileCmd(t1, c) })
-  def callCmd: Parser[CallCmd] = positioned("call" ~ ident ~ tupleExpr ^^ { case "call" ~ i ~ t => CallCmd(i, t) })
+  def callCmd: Parser[CallCmd] = positioned("call" ~ ident ~ tupleExpr ^^ { case "call" ~ i ~ t => CallCmd(i, t) }) // TODO globinits optional
   def inputCmd: Parser[InputCmd] = positioned("input" ~> expr ^^ { case e => InputCmd(e) })
   def outputCmd: Parser[OutputCmd] = positioned("output" ~> expr ^^ { case e => OutputCmd(e) })
 
@@ -28,7 +32,7 @@ trait IMLParsers extends RegexParsers {
   def boolOpr: Parser[BoolOpr] = positioned("&&" ^^^ { Cand } | "||" ^^^ { Cor })
   def relOpr: Parser[RelOpr] = positioned("==" ^^^ { EQ } | "/=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT })
   def addOpr: Parser[AddOpr] = positioned("-" ^^^ { MinusOpr } | "+" ^^^ { PlusOpr })
-  def listOpr: Parser[MonadicListOpr] = positioned("head" ^^^ { HeadOpr } | "tail" ^^^ { TailOpr })
+  def listOpr: Parser[MonadicListOpr] = positioned("head" ^^^ { HeadOpr } | "tail" ^^^ { TailOpr } | "size" ^^^ { SizeOpr })
   def concatOpr: Parser[DyadicListOpr] = positioned("::" ^^^ { ConcatOpr })
 
   def ident: Parser[Ident] = positioned(raw"[A-Za-z]+[A-Za-z0-9]*".r.withFilter(!AST.keywords.contains(_)).withFailureMessage("identifier expected") ^^ { x => Ident(x.toString()) })
