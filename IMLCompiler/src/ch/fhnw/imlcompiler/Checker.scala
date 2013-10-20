@@ -58,12 +58,39 @@ trait Checkers {
     return Context(globalStoreScope, localStoreScope, globalMethodScope)
   }
 
-  def operandType(o: Opr): Type = {
+  def checkDyadicOpr(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: MutableList[Store]) = {
+    val lhsType = returnType(lhs, scope);
+    val rhsType = returnType(rhs, scope)
     o match {
-      case PlusOpr | MinusOpr => IntType
-      case DivOpr | TimesOpr | ModOpr => IntType
-      case EQ | NE | GT | LT | GE | LE => IntType
-      case Cand | Cor | Not => BoolType
+      case ConcatOpr => {
+        rhsType match {
+          case ListType(t) => if (!t.matches(lhsType)) throw TypeMismatchError(rhs, t, lhsType)
+          case _ => throw TypeMismatchError(lhs, ListType(lhsType), rhsType)
+        }
+      }
+      case t => {
+        val expectedType = t match {
+          case PlusOpr | MinusOpr | DivOpr | TimesOpr | ModOpr | EQ | NE | GT | LT | GE | LE => IntType
+          case Cand | Cor => BoolType
+        }
+
+        if (!returnType(lhs, scope).matches(expectedType)) throw TypeMismatchError(lhs, expectedType, lhsType)
+        if (!returnType(rhs, scope).matches(expectedType)) throw TypeMismatchError(rhs, expectedType, rhsType)
+      }
+    }
+  }
+
+  def checkMonadicOpr(rhs: Expr, o: MonadicOpr, scope: MutableList[Store]) {
+    val rhsType = returnType(rhs, scope);
+
+    o match {
+      case HeadOpr | TailOpr | SizeOpr => {
+        // TODO any not always correct here (any "only" matches int|bool but here a list would also be possible)
+        rhsType match { case ListType(x) => {} case invalid => throw TypeMismatchError(rhs, ListType(Any), rhsType) }
+      }
+      case Not => {
+        if (!returnType(rhs, scope).matches(BoolType)) throw TypeMismatchError(rhs, BoolType, rhsType)
+      }
     }
   }
 
@@ -134,7 +161,7 @@ trait Checkers {
         val rhsReturn = returnType(rhs, scope);
         rhsReturn match {
           case ListType(t) => t
-          case _ => throw new CompilerException("what?"); // TODO
+          case _ => throw new CompilerException("what?"); // TODO ??? 
         }
       }
       case TailOpr => returnType(rhs, scope);
@@ -171,26 +198,15 @@ trait Checkers {
   def checkExpr(e: Expr, scope: MutableList[Store], lvalue: Boolean = false, loopedExpr: Boolean = false) {
     // TODO pass if is lvalue and looped expr to ckeckExpr sub calls?
     e match {
-      case DyadicExpr(lhs, opr: DyadicListOpr, rhs) => {
-        checkExpr(rhs, scope);
-
-        val r = returnType(rhs, scope)
-        val l = returnType(lhs, scope);
-
-        r match {
-          case ListType(t) => if (!t.matches(l)) throw TypeMismatchError(e, t, l)
-          case _ => throw TypeMismatchError(e, ListType(l), r)
-        }
-      }
-      case MonadicExpr(lhs, opr: MonadicListOpr) => {}
       case DyadicExpr(lhs, opr, rhs) =>
         checkExpr(lhs, scope);
         checkExpr(rhs, scope);
-        if (returnType(lhs, scope) != operandType(opr)) throw TypeMismatchError(e, operandType(opr), returnType(lhs, scope))
-        if (returnType(rhs, scope) != operandType(opr)) throw TypeMismatchError(e, operandType(opr), returnType(rhs, scope))
-      case MonadicExpr(lhs, opr) =>
-        checkExpr(lhs, scope);
-        if (returnType(lhs, scope) != operandType(opr)) throw TypeMismatchError(e, operandType(opr), returnType(lhs, scope))
+
+        checkDyadicOpr(lhs, opr, rhs, scope);
+      case MonadicExpr(rhs, opr) =>
+        checkExpr(rhs, scope);
+
+        checkMonadicOpr(rhs, opr, scope);
       case LiteralExpr(e) => {
         e match {
           case l: ListLiteral => checkListLiteral(l, scope, lvalue, loopedExpr)
@@ -286,13 +302,19 @@ trait Checkers {
   }
 
   def checkListLiteral(listLiteral: ListLiteral, scope: MutableList[Store], lvalue: Boolean = false, loopedExpr: Boolean = false) {
+    // first check if all expressions are valid
     listLiteral.l.foreach(e => {
       checkExpr(e, scope, lvalue, loopedExpr)
+    })
 
+    // check if types of (e cross e) matches
+    listLiteral.l.foreach(e => {
       val ret = returnType(e, scope)
       listLiteral.l.foreach(e2 => {
         val ret2 = returnType(e2, scope)
-        if (!ret.matches(ret2)) throw TypeMismatchError(e, ret, ret2);
+        if (!ret.matches(ret2)) {
+          throw TypeMismatchError(e2, ret, ret2);
+        }
       })
     })
   }

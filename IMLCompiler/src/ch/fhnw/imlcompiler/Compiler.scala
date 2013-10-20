@@ -34,8 +34,8 @@ object Compiler extends IMLParsers with Checkers {
 
       // TODO interpret
     } catch {
-      case e: ParseException => { /*System.err.println(e.getMessage); */e.printStackTrace() }
-      case e: CompilerException => { /*System.err.println(e.getMessage); */ e.printStackTrace() }
+      case e: ParseException => { System.err.println(e.getMessage); /*e.printStackTrace() */ }
+      case e: CompilerException => { System.err.println(e.getMessage); /*e.printStackTrace() */ }
     }
 
     //    val lit = parser("[[[], [[3]]]]", listLiteral)
