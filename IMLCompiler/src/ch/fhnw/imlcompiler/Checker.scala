@@ -28,6 +28,7 @@ trait Checkers {
 
   // mech and flowmode only used for parameters
   // parameters are by default initialized!
+  // TODO initialized checking really during this phase?
   case class Store(typedIdent: TypedIdent, mech: Option[MechMode], change: Option[ChangeMode], flow: Option[FlowMode], var initialzed: Boolean)
 
   case class GlobalStoreScope(scope: MutableList[Store])
@@ -64,7 +65,7 @@ trait Checkers {
     o match {
       case ConcatOpr => {
         rhsType match {
-          case ListType(t) => if (!t.matches(lhsType)) throw TypeMismatchError(rhs, t, lhsType)
+          case ListType(t) => if (!t.matches(lhsType)) throw TypeMismatchError(lhs, t, lhsType)
           case _ => throw TypeMismatchError(lhs, ListType(lhsType), rhsType)
         }
       }
@@ -184,6 +185,7 @@ trait Checkers {
           case Some(store) => store.typedIdent.t;
         }
       }
+      case ListExpr(_, _, _, _, _) => ListType(IntType)
       case FunCallExpr(i, _) => {
         globalMethodScope.decls.find(x => x._1 == i) match {
           case None => throw UndefinedMethodException(i)
@@ -216,6 +218,12 @@ trait Checkers {
           case l: ListLiteral => checkListLiteral(l, scope, lvalue, loopedExpr)
           case _ =>
         }
+      }
+      case ListExpr(ret, i, from, to, where) => {
+        // TODO ident has to be unique?
+        
+        // TODO somehow insert ident into scope for this call...
+        // checkExpr(ret, scope, lvalue, loopedExpr)
       }
       case FunCallExpr(ident, tupleExpr) => {
         globalMethodScope.decls.get(ident) match {

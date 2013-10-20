@@ -44,13 +44,14 @@ trait IMLParsers extends RegexParsers {
   def listLiteral: Parser[ListLiteral] = positioned("[" ~ repsep(expr, ",") ~ "]" ^^ { case "[" ~ l ~ "]" => ListLiteral(l) })
 
   // expressions
-  def monadicExpr: Parser[MonadicExpr] = positioned(monadicAddExpr | monadicNotExpr | monadicListExpr)
+  def monadicExpr: Parser[MonadicExpr] = positioned(monadicAddExpr |  monadicNotExpr | monadicListExpr)
   def monadicAddExpr: Parser[MonadicExpr] = positioned(addOpr ~ factor ^^ { case op ~ exp => MonadicExpr(exp, op) })
   def monadicNotExpr: Parser[MonadicExpr] = positioned("not" ~ factor ^^ { case "not" ~ exp => MonadicExpr(exp, Not) })
   def monadicListExpr: Parser[MonadicExpr] = positioned(listOpr ~ factor ^^ { case l ~ f => MonadicExpr(f, l) })
-
-  def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | "(" ~> expr <~ ")")
-
+  def listExpr: Parser[ListExpr] = positioned("[" ~ expr ~ "|" ~ ident ~ "from" ~ expr ~ "to" ~ expr ~ "where" ~ expr ~ "]" ^^ { case "[" ~ r ~ "|" ~ i ~ "from" ~ from ~ "to" ~ to ~ "where" ~ where ~ "]" => ListExpr(r, i, from, to, where) })
+  
+  def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | listExpr | "(" ~> expr <~ ")")
+  
   // TODO | will do backtracking...
   // TODO best way to create right associative operator?
   def expr: Parser[Expr] = positioned((term0 ~ concatOpr ~ expr ^^ { case e ~ opr ~ e1 => DyadicExpr(e, opr, e1) }) | term0)
