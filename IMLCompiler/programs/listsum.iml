@@ -16,8 +16,8 @@ endfun;
 var sum:int;
 var primes:[int]
 do
- 	primes init := [x | x from -2 * 3 to 13 where isPrime(x)];
-	sum init := sum(1 :: 3 :: 3 :: primes)
+ 	primes init := [x | x from 3 to 12 where isPrime(x)];
+	sum init := sum(1 :: 2 :: 3 :: primes)
 endprogram
 
 /*

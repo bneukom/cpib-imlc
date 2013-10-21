@@ -3,6 +3,7 @@ package ch.fhnw.imlcompiler
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.MutableList
 import ch.fhnw.imlcompiler.AST._
+import ch.fhnw.imlcompiler.checking.ProgramContext._
 
 // TODO create a CallRoot class (Cmd, IfCmd, WhileCmd, ???) instead of the boolean
 // TODO do not use exceptions but rather a CheckResult which is either a CheckError or a IMLContext (which is then used by the code generator)
@@ -24,22 +25,12 @@ trait SemanticAnalysis {
   case class LoopedInit(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing store: " + n.value + " inside a loop body\n\n" + n.pos.longString + "\nAST: " + n);
   case class NoGlobalStoreFound(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") no global store found for imported store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
 
-  case class Context(globalVarScope: GlobalStoreScope, localVarScope: LocalStoreScopes, globalMethodScope: GlobalMethodScope)
-
-  // mech and flowmode only used for parameters
-  // parameters are by default initialized!
-  // TODO initialized checking really during this phase?
-  case class Store(typedIdent: TypedIdent, mech: Option[MechMode], change: Option[ChangeMode], flow: Option[FlowMode], var initialzed: Boolean)
-
-  case class GlobalStoreScope(scope: MutableList[Store])
-  case class LocalStoreScopes(scope: HashMap[Ident, MutableList[Store]]) // includes global imports and parameters
-  case class GlobalMethodScope(decls: HashMap[Ident, Decl])
 
   private val globalStoreScope: GlobalStoreScope = GlobalStoreScope(new MutableList());
   private val localStoreScope: LocalStoreScopes = LocalStoreScopes(new HashMap());
   private val globalMethodScope: GlobalMethodScope = GlobalMethodScope(new HashMap());
 
-  def check(prog: Program): Context = {
+  def checkSemantics(prog: Program): Context = {
     // load global declarations first (so we don't need any forward declarations)
     loadProgParams(prog.params);
     loadGlobalCpsDecl(prog.cpsDecl);
@@ -66,7 +57,7 @@ trait SemanticAnalysis {
       case ConcatOpr => {
         rhsType match {
           case ListType(t) => if (!t.matches(lhsType)) throw TypeMismatchError(lhs, t, lhsType)
-          case _ => throw TypeMismatchError(lhs, ListType(lhsType), rhsType)
+          case _ => throw TypeMismatchError(rhs, ListType(lhsType), rhsType)
         }
       }
       case t => {
@@ -224,9 +215,7 @@ trait SemanticAnalysis {
         if (scope.find(s => s.typedIdent.i == i).isDefined) throw DuplicateIdentException(i)
 
         // check from and where expressions (they should not be able to access the anonymous store)
-        checkExpr(from, scope, lvalue, loopedExpr)
         val fromType = returnType(from, scope); if (!fromType.matches(IntType)) throw TypeMismatchError(from, IntType, fromType);
-        checkExpr(to, scope, lvalue, loopedExpr)
         val toType = returnType(to, scope); if (!toType.matches(IntType)) throw TypeMismatchError(to, IntType, toType);
 
         // add the anonymous identifier to the current scope for this test
