@@ -5,7 +5,7 @@ import scala.text._
 import Document._
 
 // TODO what are default modes?
-object Compiler extends IMLParsers with Checkers {
+object Compiler extends IMLParsers with SemanticAnalysis with ASTTransformers {
 
   def main(args: Array[String]) {
     val file = scala.io.Source.fromFile("programs/listsum.iml")

@@ -6,12 +6,12 @@ import ch.fhnw.imlcompiler.AST._
 
 // TODO create a CallRoot class (Cmd, IfCmd, WhileCmd, ???) instead of the boolean
 // TODO do not use exceptions but rather a CheckResult which is either a CheckError or a IMLContext (which is then used by the code generator)
-trait Checkers {
+trait SemanticAnalysis {
 
   case class DuplicateIdentException(ident: Ident) extends CompilerException("(" + ident.pos.line + ":" + ident.pos.column + ") '" + ident.value + "' is already defined\n\n" + ident.pos.longString + "\nAST: " + ident)
   case class InvalidDeclException(decl: Decl) extends CompilerException("(" + decl.pos.line + ":" + decl.pos.column + ") invalid decleration of " + decl.getClass().getSimpleName + "\n\n" + decl.pos.longString + "\nAST: " + decl)
   case class TypeMismatchError(n: ASTNode, required: Type, found: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") type mismatch; found: " + found + " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n)
-  case class UndefinedVariableException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined variable '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
+  case class UndefinedStoreException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined store '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class UndefinedMethodException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined method '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class ProcReturnException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") proc method '" + n.value + "' do not have return types\n\n" + n.pos.longString + "\nAST: " + n);
   case class InvalidParamaterAmount(n: TupleExpr, required: Int, actual: Int) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid amount of parameters " + actual + " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
@@ -181,7 +181,7 @@ trait Checkers {
       case LiteralExpr(l) => returnType(l, scope)
       case StoreExpr(i, _) => {
         scope.find(x => x.typedIdent.i == i) match {
-          case None => throw UndefinedVariableException(i);
+          case None => throw UndefinedStoreException(i);
           case Some(store) => store.typedIdent.t;
         }
       }
@@ -220,10 +220,28 @@ trait Checkers {
         }
       }
       case ListExpr(ret, i, from, to, where) => {
-        // TODO ident has to be unique?
+        // anonymous ident has to be unique
+        if (scope.find(s => s.typedIdent.i == i).isDefined) throw DuplicateIdentException(i)
+
+        // check from and where expressions (they should not be able to access the anonymous store)
+        checkExpr(from, scope, lvalue, loopedExpr)
+        val fromType = returnType(from, scope); if (!fromType.matches(IntType)) throw TypeMismatchError(from, IntType, fromType);
+        checkExpr(to, scope, lvalue, loopedExpr)
+        val toType = returnType(to, scope); if (!toType.matches(IntType)) throw TypeMismatchError(to, IntType, toType);
+
+        // add the anonymous identifier to the current scope for this test
+        val anonymousStore = Store(TypedIdent(i, IntType), Some(Copy), Some(Var), None, true);
+        scope += anonymousStore;
+
+        // check the return type
+        checkExpr(ret, scope, lvalue, loopedExpr)
+        val retType = returnType(ret, scope); if (!retType.matches(IntType)) throw TypeMismatchError(ret, IntType, retType);
+
+        checkExpr(where, scope, lvalue, loopedExpr)
+        val whereType = returnType(where, scope); if (!whereType.matches(BoolType)) throw TypeMismatchError(where, BoolType, whereType);
         
-        // TODO somehow insert ident into scope for this call...
-        // checkExpr(ret, scope, lvalue, loopedExpr)
+        // TODO remove anonymousStore from scope
+        
       }
       case FunCallExpr(ident, tupleExpr) => {
         globalMethodScope.decls.get(ident) match {
@@ -234,8 +252,9 @@ trait Checkers {
         }
       }
       case StoreExpr(i, init) => {
+        // TODO initalized test here or in FlowAnalysis.scala?
         scope.find(s => s.typedIdent.i == i) match {
-          case None => throw UndefinedVariableException(i);
+          case None => throw UndefinedStoreException(i);
           case Some(s) => {
             if (init) {
               // can not initialize a store inside of a loop
