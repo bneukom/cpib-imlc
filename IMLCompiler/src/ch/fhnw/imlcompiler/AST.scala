@@ -10,7 +10,7 @@ object AST {
 
   class ASTNode extends Positional
 
-  case class Program(params: List[ProgParameter], cpsDecl: List[Decl], cmd: List[Cmd]) extends ASTNode
+  case class Program(params: List[ProgParameter], cpsDecl: List[Decl], commands: List[Cmd]) extends ASTNode
 
   case class TypedIdent(i: Ident, t: Type) extends ASTNode
 

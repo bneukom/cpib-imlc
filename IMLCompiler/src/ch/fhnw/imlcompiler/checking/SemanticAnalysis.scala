@@ -2,6 +2,9 @@ package ch.fhnw.imlcompiler
 
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.MutableList
+import scala.collection.mutable.LinkedList
+import scala.collection.mutable.ListBuffer
+import scala.collection.mutable.DoubleLinkedList
 import ch.fhnw.imlcompiler.AST._
 import ch.fhnw.imlcompiler.checking.ProgramContext._
 
@@ -26,7 +29,7 @@ trait SemanticAnalysis {
   case class NoGlobalStoreFound(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") no global store found for imported store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
 
 
-  private val globalStoreScope: GlobalStoreScope = GlobalStoreScope(new MutableList());
+  private val globalStoreScope: GlobalStoreScope = GlobalStoreScope(new ListBuffer());
   private val localStoreScope: LocalStoreScopes = LocalStoreScopes(new HashMap());
   private val globalMethodScope: GlobalMethodScope = GlobalMethodScope(new HashMap());
 
@@ -45,12 +48,12 @@ trait SemanticAnalysis {
     checkMethods(prog.cpsDecl);
 
     // check the main of the program for the same errors
-    checkCpsCmd(prog.cmd, globalStoreScope.scope);
+    checkCpsCmd(prog.commands, globalStoreScope.scope);
 
     return Context(globalStoreScope, localStoreScope, globalMethodScope)
   }
 
-  def checkDyadicOpr(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: MutableList[Store]) = {
+  def checkDyadicOpr(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: ListBuffer[Store]) = {
     val lhsType = returnType(lhs, scope);
     val rhsType = returnType(rhs, scope)
     o match {
@@ -73,7 +76,7 @@ trait SemanticAnalysis {
     }
   }
 
-  def checkMonadicOpr(rhs: Expr, o: MonadicOpr, scope: MutableList[Store]) {
+  def checkMonadicOpr(rhs: Expr, o: MonadicOpr, scope: ListBuffer[Store]) {
     val rhsType = returnType(rhs, scope);
 
     o match {
@@ -90,7 +93,7 @@ trait SemanticAnalysis {
     }
   }
 
-  def returnType(l: Literal, scope: MutableList[Store]): Type = {
+  def returnType(l: Literal, scope: ListBuffer[Store]): Type = {
     l match {
       case IntLiteral(_) => IntType
       case BoolLiteral(_) => BoolType
@@ -98,9 +101,9 @@ trait SemanticAnalysis {
     }
   }
 
-  def listType(list: ListLiteral, scope: MutableList[Store], depth: Int = 0): (Type, Int) = {
+  def listType(list: ListLiteral, scope: ListBuffer[Store], depth: Int = 0): (Type, Int) = {
 
-    val children = MutableList[Tuple2[Type, Int]]();
+    val children = ListBuffer[Tuple2[Type, Int]]();
 
     for (e <- list.l) {
 
@@ -139,7 +142,7 @@ trait SemanticAnalysis {
     }
   }
 
-  def dyadicReturnType(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: MutableList[Store]) = {
+  def dyadicReturnType(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: ListBuffer[Store]) = {
     o match {
       case PlusOpr | MinusOpr => IntType
       case DivOpr | TimesOpr | ModOpr => IntType
@@ -149,7 +152,7 @@ trait SemanticAnalysis {
     }
   }
 
-  def monadicReturnType(o: MonadicOpr, rhs: Expr, scope: MutableList[Store]) = {
+  def monadicReturnType(o: MonadicOpr, rhs: Expr, scope: ListBuffer[Store]) = {
     o match {
       case PlusOpr | MinusOpr => IntType
       case Not => BoolType
@@ -165,7 +168,7 @@ trait SemanticAnalysis {
     }
   }
 
-  def returnType(e: Expr, scope: MutableList[Store]): Type = {
+  def returnType(e: Expr, scope: ListBuffer[Store]): Type = {
     e match {
       case DyadicExpr(lhs, opr, rhs) => dyadicReturnType(lhs, opr, rhs, scope)
       case MonadicExpr(rhs, opr) => monadicReturnType(opr, rhs, scope)
@@ -192,7 +195,7 @@ trait SemanticAnalysis {
   }
 
   // TODO branched initialization (what if store was initialized only in if block or if and else both?)
-  def checkExpr(e: Expr, scope: MutableList[Store], lvalue: Boolean = false, loopedExpr: Boolean = false) {
+  def checkExpr(e: Expr, scope: ListBuffer[Store], lvalue: Boolean = false, loopedExpr: Boolean = false) {
     // TODO pass if is lvalue and looped expr to ckeckExpr sub calls?
     e match {
       case DyadicExpr(lhs, opr, rhs) =>
@@ -220,17 +223,16 @@ trait SemanticAnalysis {
 
         // add the anonymous identifier to the current scope for this test
         val anonymousStore = Store(TypedIdent(i, IntType), Some(Copy), Some(Var), None, true);
-        scope += anonymousStore;
-
+        val tempScope = scope :+ anonymousStore;
+        // TODO use linked list and :+ operator for temporary store!!!!
+        
+        
         // check the return type
-        checkExpr(ret, scope, lvalue, loopedExpr)
-        val retType = returnType(ret, scope); if (!retType.matches(IntType)) throw TypeMismatchError(ret, IntType, retType);
+        checkExpr(ret, tempScope, lvalue, loopedExpr)
+        val retType = returnType(ret, tempScope); if (!retType.matches(IntType)) throw TypeMismatchError(ret, IntType, retType);
 
-        checkExpr(where, scope, lvalue, loopedExpr)
-        val whereType = returnType(where, scope); if (!whereType.matches(BoolType)) throw TypeMismatchError(where, BoolType, whereType);
-        
-        // TODO remove anonymousStore from scope
-        
+        checkExpr(where, tempScope, lvalue, loopedExpr)
+        val whereType = returnType(where, tempScope); if (!whereType.matches(BoolType)) throw TypeMismatchError(where, BoolType, whereType);
       }
       case FunCallExpr(ident, tupleExpr) => {
         globalMethodScope.decls.get(ident) match {
@@ -271,11 +273,11 @@ trait SemanticAnalysis {
   }
 
   // TODO this method is no more needed
-  def checkCpsCmd(cpsCmd: List[Cmd], scope: MutableList[Store], loopedCmd: Boolean = false) = {
+  def checkCpsCmd(cpsCmd: List[Cmd], scope: ListBuffer[Store], loopedCmd: Boolean = false) = {
     cpsCmd.foreach(cmd => checkCmd(cmd, scope, loopedCmd))
   }
 
-  def checkCmd(cmd: Cmd, scope: MutableList[Store], loopedCmd: Boolean = false) {
+  def checkCmd(cmd: Cmd, scope: ListBuffer[Store], loopedCmd: Boolean = false) {
     cmd match {
       case BecomesCmd(lhs, rhs) => {
         // rhs must be checked before lhs due to the possibility of uninitialized stores
@@ -330,7 +332,7 @@ trait SemanticAnalysis {
     }
   }
 
-  def checkListLiteral(listLiteral: ListLiteral, scope: MutableList[Store], lvalue: Boolean = false, loopedExpr: Boolean = false) {
+  def checkListLiteral(listLiteral: ListLiteral, scope: ListBuffer[Store], lvalue: Boolean = false, loopedExpr: Boolean = false) {
     // first check if all expressions are valid
     listLiteral.l.foreach(e => {
       checkExpr(e, scope, lvalue, loopedExpr)
@@ -348,7 +350,7 @@ trait SemanticAnalysis {
     })
   }
 
-  def checkParameters(decl: Decl, tupleExpr: TupleExpr, scope: MutableList[Store], looped: Boolean = false) {
+  def checkParameters(decl: Decl, tupleExpr: TupleExpr, scope: ListBuffer[Store], looped: Boolean = false) {
     decl match {
       case StoreDecl(_, i) => throw new CompilerException("internal compiler error");
       case FunDecl(identifier, params, r, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope, looped)
@@ -356,7 +358,7 @@ trait SemanticAnalysis {
     }
   }
 
-  def checkMethodParameters(tupleExpr: TupleExpr, params: List[Parameter], scope: MutableList[Store], looped: Boolean = false) {
+  def checkMethodParameters(tupleExpr: TupleExpr, params: List[Parameter], scope: ListBuffer[Store], looped: Boolean = false) {
     if (tupleExpr.l.size != params.size) throw InvalidParamaterAmount(tupleExpr, params.size, tupleExpr.l.size);
 
     val o = tupleExpr.l.zip(params);
@@ -405,7 +407,7 @@ trait SemanticAnalysis {
           loadMethodDecl(identifier, decl, cpsDecl, params, imports, cmd);
 
           // also load return value into local scope (IML40)
-          loadLocalDecl(ret.ti.i, ret, localStoreScope.scope.getOrElseUpdate(identifier, new MutableList[Store]()))
+          loadLocalDecl(ret.ti.i, ret, localStoreScope.scope.getOrElseUpdate(identifier, new ListBuffer[Store]()))
         }
         case ProcDecl(identifier, params, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, imports, cmd);
         case _ =>
@@ -416,8 +418,8 @@ trait SemanticAnalysis {
   def checkMethods(cpsDecl: List[Decl]) = cpsDecl.foreach(decl => checkMethod(decl))
   def checkMethod(decl: Decl) {
     decl match {
-      case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => checkCpsCmd(cmd, localStoreScope.scope.getOrElse(identifier, new MutableList()));
-      case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkCpsCmd(cmd, localStoreScope.scope.getOrElse(identifier, new MutableList()));
+      case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => checkCpsCmd(cmd, localStoreScope.scope.getOrElse(identifier, new ListBuffer()));
+      case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkCpsCmd(cmd, localStoreScope.scope.getOrElse(identifier, new ListBuffer()));
       case StoreDecl(_, init) =>
 
     }
@@ -428,15 +430,15 @@ trait SemanticAnalysis {
     if (globalMethodScope.decls.contains(identifier)) throw new DuplicateIdentException(identifier)
 
     globalMethodScope.decls += (identifier -> methodDecl)
-
-    val localScope = localStoreScope.scope.getOrElseUpdate(identifier, new MutableList[Store]());
+    
+    val localScope = localStoreScope.scope.getOrElseUpdate(identifier, new ListBuffer[Store]());
 
     loadMethodGlobals(imports, localScope);
     loadLocalParams(paramList, localScope)
     loadLocalCpsDecl(identifier, cpsDecl, localScope)
   }
 
-  def loadMethodGlobals(imports: List[GlobImport], scope: MutableList[Store]) {
+  def loadMethodGlobals(imports: List[GlobImport], scope: ListBuffer[Store]) {
     imports.foreach(imp => {
       if (scope.find(x => x.typedIdent.i == imp.i).isDefined) throw DuplicateIdentException(imp.i);
 
@@ -450,6 +452,7 @@ trait SemanticAnalysis {
           // in/out stores are initialized by default
           val initialized = imp.f.forall(f => f == In || f == InOut)
           scope += Store(typedIdent, None, imp.c, imp.f, initialized);
+          
         }
       }
 
@@ -466,7 +469,7 @@ trait SemanticAnalysis {
     })
   }
 
-  def loadLocalParams(params: List[Parameter], scope: MutableList[Store]) {
+  def loadLocalParams(params: List[Parameter], scope: ListBuffer[Store]) {
     params.foreach(param => {
 
       // IN parameters are initialized by default (so no further initialization is allowed), OUT parameters need to be initialized  (IML36)
@@ -480,11 +483,11 @@ trait SemanticAnalysis {
   }
 
   // TODO this method is no more needed
-  def loadLocalCpsDecl(ident: Ident, cpsDecl: List[Decl], scope: MutableList[Store]) = {
+  def loadLocalCpsDecl(ident: Ident, cpsDecl: List[Decl], scope: ListBuffer[Store]) = {
     cpsDecl.foreach(decl => loadLocalDecl(ident, decl, scope))
   }
 
-  def loadLocalDecl(ident: Ident, decl: Decl, scope: MutableList[Store]) {
+  def loadLocalDecl(ident: Ident, decl: Decl, scope: ListBuffer[Store]) {
     decl match {
       case StoreDecl(c, ti) => {
         val localStore = Store(ti, None, Some(c), None, false);

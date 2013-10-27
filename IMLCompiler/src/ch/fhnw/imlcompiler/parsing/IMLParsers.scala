@@ -54,11 +54,9 @@ trait IMLParsers extends RegexParsers {
   
   def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | listExpr | "(" ~> expr <~ ")")
   
-  // TODO | will do backtracking...
-  // TODO best way to create right associative operator?
-  def expr: Parser[Expr] = positioned((term0 ~ concatOpr ~ expr ^^ { case e ~ opr ~ e1 => DyadicExpr(e, opr, e1) }) | term0)
+  def expr: Parser[Expr] = positioned((term0 ~ concatOpr ~ expr ^^ { case e ~ opr ~ e1 => DyadicExpr(e, opr, e1) }) | term0) // the | models the [optional] (so still LL1 compatible)
   def term0: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
-  def term1: Parser[Expr] = positioned(term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 })
+  def term1: Parser[Expr] = positioned(term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 }) // the | models [optional] (so still LL1 compatible)
   def term2: Parser[Expr] = positioned(term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
   def term3: Parser[Expr] = positioned(factor * (multOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
 
