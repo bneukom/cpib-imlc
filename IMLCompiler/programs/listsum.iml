@@ -21,8 +21,9 @@ endfun;
 var sum:int;
 var primes:[int]
 do
- 	primes init := [x | x from 2 to 100 where isPrime(x)];
- 	primes := [y1 | y1 from 2 to 100 where isPrime(y1)];
+	primes init := [x | x from 2 to 100 where isPrime(x)];
+ 	primes := [x | x from 2 to 100 where isPrime(x)];
+  	primes := [x | x from 100 to 0 where x mod 2 == 0 && isPrime(x)];
 	sum init := sum(1 :: 1 :: 3 :: primes)
 endprogram
 
@@ -39,7 +40,7 @@ endprogram
 		else 
 			skip;
 		endif;
-		$x1 := $x1 + 1 // oder $x1 := $x1 - 1 falls end > start  TODO NOT POSSIBLE BECAUSE ONLY KNOWN AT RUNTIME
+		$x1 := $x1 + 1 // oder $x1 := $x1 - 1 falls end > start
 	endwhile
 	
 	primes init := $$l1;
