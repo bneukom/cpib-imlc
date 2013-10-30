@@ -11,33 +11,39 @@ import scala.collection.mutable.ListBuffer
 trait ASTTransformers {
 
   def transform(program: Program, context: Context): Program = {
-    return program.copy(cpsDecl = transformDecls(), commands = transformCommands(program.commands, context.globalStoreScope.scope));
+    return Program(program.params, program.cpsDecl, transformCommands(program.commands, context.globalStoreScope.scope))
   }
-
-  def transformDecls(): List[Decl] = {
-
-    Nil
-  }
+  
+//  def transform(prog:Program): (List[Cmd], List[Decl]) = {
+//  }
 
   def transformCommands(cmds: List[Cmd], scope: ListBuffer[Store]): List[Cmd] = {
     // TODO insert new commands needed
 
-    val newCmds = MutableList[Cmd]();
+    val newCmds = ListBuffer[Cmd]();
 
     cmds.foreach(cmd => {
-      if (containsListExpr(cmd)) {
-        // TODO update scope
-        // TODO create new commands for this list expr
-        // TODO change listExpr to StoreExpr
-      }
+      cmd match {
+        case WhileCmd(e, c) => {
+          val l = transformExpr(e, newCmds, scope);
+          newCmds += WhileCmd(l, c);
+        }
 
-      newCmds += cmd;
+        case BecomesCmd(el, er) => {
+          val l = transformExpr(el, newCmds, scope);
+          val r = transformExpr(er, newCmds, scope);
+          newCmds += BecomesCmd(l, r)
+        }
+      }
+      
+      // TODO update scope
+      // TODO create new commands for this list expr
+      // TODO change listExpr to StoreExpr
+
     })
 
     newCmds.toList
   }
-
-  def containsListExpr(cmd: Cmd): Boolean = true
 
   /*
   	var $x1:int;
@@ -70,19 +76,27 @@ trait ASTTransformers {
 
     val whileCmd = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), if (lexpr.from.v < lexpr.to.v) LT else GT, LiteralExpr(lexpr.to)), whereCmd :: incrementer :: Nil)
     val resultExpr = StoreExpr(listIdent, false)
-    
+
     return (counterStoreDecl, listStoreDecl, countInitCmd :: listInitCmd :: whileCmd :: Nil, resultExpr)
   }
 
-  def transformExpr(expr: Expr, context: Context) = {
+  def transformExpr(expr: Expr, cmds: ListBuffer[Cmd], scope: ListBuffer[Store]): Expr = {
     expr match {
-      case ListExpr(ret, i, from, to, where) => {
-        // TODO returns a new store expr
-        // TODO how to inject the new commands/stores needed?
+      case l: ListExpr => {
+        val listExpr = transformListExpr(l, 0);
+
+        // TODO where to add store decls?
+        cmds ++= listExpr._3;
+
+        return listExpr._4;
       }
-      case DyadicExpr(lhs, _, rhs) =>
-      case MonadicExpr(rhs, _) =>
-      case _ => {}
+      case DyadicExpr(lhs, op, rhs) => {
+        DyadicExpr(transformExpr(lhs, cmds, scope), op, transformExpr(rhs, cmds, scope));
+      }
+      case MonadicExpr(rhs, op) => {
+        MonadicExpr(transformExpr(rhs, cmds, scope), op);
+      }
+      // TODO implement rest
     }
   }
 
