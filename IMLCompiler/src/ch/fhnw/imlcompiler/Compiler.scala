@@ -32,7 +32,7 @@ object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with 
 
       // code transformations (for example list expressions)
       // val transformed = transform(program, context);
-      println("AST Transformed\n")
+      //      println("AST Transformed\n")
 
       // TODO interpret
     } catch {
