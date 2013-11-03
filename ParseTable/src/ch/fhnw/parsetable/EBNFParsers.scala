@@ -22,5 +22,5 @@ trait EBNFParsers extends RegexParsers {
     }
   }
 
-  case class PraseTableException(v:String) extends RuntimeException(v)
+  
 }

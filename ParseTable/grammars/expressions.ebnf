@@ -1,0 +1,8 @@
+e ::= t ee;
+ee ::= PLUS t ee;
+ee ::= ;
+t ::= f tt;
+tt ::= MULT f tt;
+tt ::= ;
+f ::= ID;
+f ::= LPAREN e RPAREN
