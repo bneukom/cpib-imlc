@@ -1,0 +1,7 @@
+grammar ::= production {SEMICOLON production};
+production ::= NTIDENT ASSIGN term0;
+term0 ::= {term1} {PIPE {term1}};
+term1 ::= repTerm | optTerm | symbol;
+repTerm ::= LCURL term0 RCURL;
+optTerm ::= LBRAK term0 RBRAK;
+symbol ::= TIDENT | NTIDENT

@@ -1,10 +1,14 @@
 package ch.fhnw.parsetable
 
-import ch.fhnw.parsetable.BNFGrammar._
-import scala.collection.mutable.ListBuffer
 import scala.collection.immutable.Set
-import scala.collection.mutable.HashSet
 import scala.collection.mutable.HashMap
+import scala.collection.mutable.HashSet
+import scala.collection.mutable.ListBuffer
+
+import ch.fhnw.parsetable.BNFGrammar.NT
+import ch.fhnw.parsetable.BNFGrammar.Production
+import ch.fhnw.parsetable.BNFGrammar.Symbol
+import ch.fhnw.parsetable.BNFGrammar.T
 
 // http://pages.cpsc.ucalgary.ca/~robin/class/411/LL1.2.html
 trait LL1 {
@@ -12,6 +16,7 @@ trait LL1 {
   val nullables = new ListBuffer[NT];
   val followCache = new HashMap[NT, Set[T]];
 
+  // possible endless recursion x ::= y; y ::= x
   def nullable(sl: List[Symbol], prods: List[Production]): Boolean = {
     sl.forall(s => s match {
       case T("") => true
@@ -90,6 +95,12 @@ trait LL1 {
     follows.toSet
   }
 
+  def ts(prods: List[Production]): Set[T] = {
+    val ts = new HashSet[T];
+    prods.foreach(prod => prod.r.foreach(s => s match { case t: T => ts += t case _ => }))
+    ts.toSet
+  }
+
   def nts(prods: List[Production]): Set[NT] = {
     val nts = new HashSet[NT];
     prods.foreach(prod => {
@@ -100,6 +111,42 @@ trait LL1 {
   }
 
   def headTailZip[A](l: List[A]): List[(A, List[A])] =
-    if (l.size == 0) Nil
+    if (l.isEmpty) Nil
     else (l.head, l.tail) :: headTailZip(l.tail)
+
+  def genParseTable(productions: List[Production], startSymbol: String): ParseTable = {
+    val terminals = ts(productions).toList :+ T("$");
+    val nonTerminals = nts(productions).toList;
+    val table = Array.ofDim[List[Symbol]](nonTerminals.size, terminals.size)
+
+    productions.foreach(prod => {
+      // rule 1
+      val firsts = first(prod.r, productions);
+      firsts.foreach(f => {
+        fillTable(nonTerminals, terminals, table, f, prod.l, prod.r)
+      })
+
+      // rule 2
+      if (nullable(prod.r, productions)) {
+        val follows = follow(prod.l, productions, startSymbol)
+        follows.foreach(f => {
+          fillTable(nonTerminals, terminals, table, f, prod.l, T("") :: Nil)
+        })
+      }
+    })
+
+    ParseTable(terminals, nonTerminals, table)
+  }
+
+  case class ParseTable(terminals: List[T], nonTerminals: List[NT], table: Array[Array[List[Symbol]]])
+
+  private def fillTable(nonTerminals: List[NT], terminals: List[T], table: Array[Array[List[Symbol]]], t: T, nt: NT, s: List[Symbol]): Unit = {
+    val nonTerminalIndex = nonTerminals.indexOf(nt)
+    val terminalIndex = terminals.indexOf(t);
+    if (table(nonTerminalIndex)(terminalIndex) == null) {
+      table(nonTerminalIndex)(terminalIndex) = s
+    } else {
+      throw new IllegalStateException
+    }
+  }
 }
