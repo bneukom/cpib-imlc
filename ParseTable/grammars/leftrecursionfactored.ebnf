@@ -1,0 +1,4 @@
+e ::= t z;
+z ::= PLUS t z;
+z ::= ;
+t ::= LITERAL

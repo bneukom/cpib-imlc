@@ -13,22 +13,28 @@ import ch.fhnw.parsetable.BNFGrammar.T
 // http://pages.cpsc.ucalgary.ca/~robin/class/411/LL1.2.html
 trait LL1 {
 
+  // TODO use map for nullable too (map NT -> bool)
   val nullables = new ListBuffer[NT];
   val followCache = new HashMap[NT, Set[T]];
 
   // possible endless recursion x ::= y; y ::= x
-  def nullable(sl: List[Symbol], prods: List[Production]): Boolean = {
+  def nullable(sl: List[Symbol], prods: List[Production], visited: ListBuffer[NT]): Boolean = {
     sl.forall(s => s match {
       case T("") => true
       case t: T => false
-      case nt: NT => nullable(nt, prods)
+      case nt: NT => nullable(nt, prods, visited)
       case _ => throw new IllegalStateException
     })
   }
-  def nullable(nt: NT, prods: List[Production]): Boolean = {
+
+  def nullable(nt: NT, prods: List[Production], visited: ListBuffer[NT]): Boolean = {
+    if (visited.contains(nt)) return false;
+
+    visited += nt;
+
     if (nullables.find(n => n.s == nt.s).isDefined) return true;
 
-    if (prods.exists(prod => prod.l == nt && nullable(prod.r, prods))) {
+    if (prods.exists(prod => prod.l == nt && nullable(prod.r, prods, visited))) {
       nullables += nt;
       return true;
     }
@@ -37,16 +43,20 @@ trait LL1 {
 
   def onlyEpsilon(sl: List[Symbol]): Boolean = sl.forall(s => s match { case T("") => true; case _ => false; });
 
-  def first(ls: List[Symbol], prods: List[Production]): Set[T] = {
+  def first(ls: List[Symbol], prods: List[Production], visited: ListBuffer[Symbol]): Set[T] = {
     ls.foreach(s => s match {
       case T("") => return Set()
       case t: T => return (t :: Nil).toSet
-      case nt: NT => return first(nt, prods)
+      case nt: NT => return first(nt, prods, visited)
       case _ => throw new IllegalStateException
     })
     Set();
   }
-  def first(nt: Symbol, prods: List[Production]): Set[T] = {
+  def first(nt: Symbol, prods: List[Production], visited: ListBuffer[Symbol] = ListBuffer[Symbol]()): Set[T] = {
+    if (visited.contains(nt)) return Set()
+
+    visited += nt
+
     val firsts = new HashSet[T]
     prods.foreach(prod => {
       if (prod.l == nt) {
@@ -57,8 +67,8 @@ trait LL1 {
             case T("") => {}; // empty
             case t: T => firsts ++= (t :: Nil).toSet
             case nt: NT => {
-              if (nullable(nt, prods) && prod.r.tail.headOption.isDefined) firsts ++= (first(nt, prods) ++ first(prod.r.tail.head, prods))
-              else firsts ++= first(nt, prods)
+              if (nullable(nt, prods, ListBuffer[NT]()) && prod.r.tail.headOption.isDefined) firsts ++= (first(nt, prods, visited) ++ first(prod.r.tail.head, prods, visited))
+              else firsts ++= first(nt, prods, visited)
             }
             case _ => throw new IllegalStateException;
           }
@@ -68,7 +78,6 @@ trait LL1 {
     return firsts.toSet;
   }
 
-  // TODO chache results
   def follow(nt: NT, prods: List[Production], startSymbol: String = "e"): Set[T] = {
     val cached = followCache.get(nt)
     if (cached.isDefined) return cached.get;
@@ -79,13 +88,14 @@ trait LL1 {
     prods.foreach(prod => {
       headTailZip(prod.r).foreach(t => {
         if (t._1 == nt) {
-          if (nullable(t._2, prods) && nt != prod.l) {
+          if (nullable(t._2, prods, ListBuffer[NT]()) && nt != prod.l) {
+            // TODO implement something similar to first() and nullable()?
             // marked as visited
             followCache += (nt -> Set())
 
-            follows ++= first(t._2, prods) ++ follow(prod.l, prods, startSymbol)
+            follows ++= first(t._2, prods, ListBuffer[Symbol]()) ++ follow(prod.l, prods, startSymbol)
           } else {
-            follows ++= first(t._2, prods);
+            follows ++= first(t._2, prods, ListBuffer[Symbol]());
           }
         }
       })
@@ -121,13 +131,13 @@ trait LL1 {
 
     productions.foreach(prod => {
       // rule 1
-      val firsts = first(prod.r, productions);
+      val firsts = first(prod.r, productions, ListBuffer[Symbol]());
       firsts.foreach(f => {
         fillTable(nonTerminals, terminals, table, f, prod.l, prod.r)
       })
 
       // rule 2
-      if (nullable(prod.r, productions)) {
+      if (nullable(prod.r, productions, ListBuffer[NT]())) {
         val follows = follow(prod.l, productions, startSymbol)
         follows.foreach(f => {
           fillTable(nonTerminals, terminals, table, f, prod.l, T("") :: Nil)
@@ -146,7 +156,7 @@ trait LL1 {
     if (table(nonTerminalIndex)(terminalIndex) == null) {
       table(nonTerminalIndex)(terminalIndex) = s
     } else {
-      throw new IllegalStateException
+      throw new IllegalStateException("not ll(1)")
     }
   }
 }

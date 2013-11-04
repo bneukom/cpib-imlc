@@ -43,7 +43,8 @@ trait BNFTransformer {
   def transformSymbol(lhs: NT, s: Symbol, prods: ListBuffer[Production]): Symbol = {
     s match {
       case Opt(l) => {
-        val optNt = NT("opt" + concat(l) + "_" + newLhsNonTerminal.count(nt => nt.s.startsWith("opt" + concat(l))))
+        //        val optNt = NT("opt" + concat(l) + "_" + newLhsNonTerminal.count(nt => nt.s.startsWith("opt" + concat(l))))
+        val optNt = NT("opt" + concat(l) + "_" + newLhsNonTerminal.count(nt => nt.s matches "opt" + concat(l) + "_[0-9]*"))
         newLhsNonTerminal += optNt;
 
         val internalSymbols = new ListBuffer[Symbol]
@@ -65,7 +66,7 @@ trait BNFTransformer {
       case Alt(ll) => {
         val altNT = NT("alt" + lhs.s + "_" + newLhsNonTerminal.count(nt => nt.s.startsWith("alt" + lhs.s)));
         newLhsNonTerminal += altNT;
-        
+
         ll.foreach(l => {
           val internalSymbols = new ListBuffer[Symbol]
           l.foreach(s2 => internalSymbols += transformSymbol(lhs, s2, prods));

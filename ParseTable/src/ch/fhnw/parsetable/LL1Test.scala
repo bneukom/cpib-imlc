@@ -1,5 +1,6 @@
 package ch.fhnw.parsetable
 import ch.fhnw.parsetable.BNFGrammar._
+import scala.collection.mutable.ListBuffer
 
 object LL1Test extends LL1 {
   def main(args: Array[String]) {
@@ -92,6 +93,6 @@ object LL1Test extends LL1 {
     val nts = prods.collect({ case x => x.l }).distinct
 
     println("nullables:");
-    nts.foreach(nt => println(nt.s + " nullable: " + nullable(nt, prods)))
+    nts.foreach(nt => println(nt.s + " nullable: " + nullable(nt, prods, ListBuffer[NT]())))
   }
 }

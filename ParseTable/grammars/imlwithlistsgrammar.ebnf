@@ -35,7 +35,8 @@ cpsCmd ::= cmd {SEMICOLON cmd};
 globInits ::= INIT idents;
 idents ::= IDENT {COMMA IDENT};
 
-expr ::= term1 {BOOLOPR term1};
+expr ::= term0 [CONCATOPR expr];
+term0 ::= term1 {BOOLOPR term1};
 term1 ::= term2 [RELOPR term2];
 term2 ::= term3 {ADDOPR term3};
 term3 ::= factor {MULTOPR factor};
@@ -44,4 +45,4 @@ factor ::= LITERAL
 		| monadicOpr factor
 		| LPAREN expr RPAREN;
 exprList ::= LPAREN [expr {COMMA expr}] RPAREN;
-monadicOpr ::= NOT | ADDOPR
+monadicOpr ::= NOT | ADDOPR | HEAD | TAIL | SIZE
