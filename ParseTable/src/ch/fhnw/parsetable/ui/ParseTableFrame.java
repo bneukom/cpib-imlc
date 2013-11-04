@@ -142,7 +142,7 @@ public class ParseTableFrame extends JFrame {
 				final ParseTableGenerator gen = new ParseTableGenerator();
 				final ParseTable generateParseTable = gen.generateParseTable(parseTableTextArea.getText());
 				final ParseTableModel tableModel = new ParseTableModel(generateParseTable);
-				
+
 				parseTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 				parseTable.setModel(tableModel);
 
@@ -186,6 +186,7 @@ public class ParseTableFrame extends JFrame {
 					parseTable.getColumnModel().getColumn(columnIndex).setCellRenderer(cellRenderer);
 				}
 
+				appendToPane("\n============================\n\n", null);
 			}
 		});
 		final GroupLayout gl_panel_2 = new GroupLayout(panel_2);
@@ -272,12 +273,10 @@ public class ParseTableFrame extends JFrame {
 	private static final class RowHeaderModel extends AbstractTableModel {
 
 		private final ParseTable data;
-		private final List<Symbol>[][] tableData;
 
 		public RowHeaderModel(final ParseTable data) {
 			super();
 			this.data = data;
-			this.tableData = this.data.table2();
 		}
 
 		@Override
@@ -336,9 +335,10 @@ public class ParseTableFrame extends JFrame {
 			final List<Symbol> symbols = (List<Symbol>) value;
 			final String stringValue = value != null ? symbolString(symbols) : "";
 			Component tableCellRendererComponent = super.getTableCellRendererComponent(table, stringValue, isSelected, hasFocus, row, column);
-			
+
+			// test
 			if (symbols != null && symbols.size() > 1)
-				tableCellRendererComponent.setForeground(Color.RED);
+				tableCellRendererComponent.setForeground(Color.BLACK);
 			else
 				tableCellRendererComponent.setForeground(Color.BLACK);
 

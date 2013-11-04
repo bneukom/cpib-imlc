@@ -1,6 +1,7 @@
-package ch.fhnw.parsetable
+package ch.fhnw.parsetable.test
 import ch.fhnw.parsetable.BNFGrammar._
 import scala.collection.mutable.ListBuffer
+import ch.fhnw.parsetable.LL1
 
 object LL1Test extends LL1 {
   def main(args: Array[String]) {

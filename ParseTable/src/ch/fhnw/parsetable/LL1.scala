@@ -107,7 +107,7 @@ trait LL1 {
 
   def ts(prods: List[Production]): Set[T] = {
     val ts = new HashSet[T];
-    prods.foreach(prod => prod.r.foreach(s => s match { case t: T => ts += t case _ => }))
+    prods.foreach(prod => prod.r.foreach(s => s match { case t: T => if (t.s.size > 0) ts += t case _ => }))
     ts.toSet
   }
 
