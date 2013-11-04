@@ -3,9 +3,9 @@ package ch.fhnw.parsetable
 object BNFGrammar {
   case class Grammar(prods: List[Production]);
   case class Production(l: NT, r: List[Symbol])
-  abstract sealed class Symbol;
-  case class T(s: String) extends Symbol;
-  case class NT(s: String) extends Symbol;
+  abstract sealed class Symbol { def valueString = "" };
+  case class T(s: String) extends Symbol { override def valueString = if (s.size > 0) s else "espilon" };
+  case class NT(s: String) extends Symbol { override def valueString = s };
   case class Rep(r: List[Symbol]) extends Symbol
   case class Opt(o: List[Symbol]) extends Symbol
   case class Alt(a: List[List[Symbol]]) extends Symbol
@@ -28,6 +28,6 @@ object BNFGrammar {
       case _ => print("ERROR");
     }
   }
-  
-  case class PraseTableException(v:String) extends RuntimeException(v)
+
+  case class PraseTableException(v: String) extends RuntimeException(v)
 }

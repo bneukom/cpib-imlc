@@ -129,6 +129,8 @@ trait LL1 {
     val nonTerminals = nts(productions).toList;
     val table = Array.ofDim[List[Symbol]](nonTerminals.size, terminals.size)
 
+    // TODO first fill with empty lists;
+
     productions.foreach(prod => {
       // rule 1
       val firsts = first(prod.r, productions, ListBuffer[Symbol]());
@@ -145,18 +147,18 @@ trait LL1 {
       }
     })
 
-    ParseTable(terminals, nonTerminals, table)
+    new ParseTable(terminals, nonTerminals, table)
   }
 
-  case class ParseTable(terminals: List[T], nonTerminals: List[NT], table: Array[Array[List[Symbol]]])
-
+  // TODO use List[Production]
   private def fillTable(nonTerminals: List[NT], terminals: List[T], table: Array[Array[List[Symbol]]], t: T, nt: NT, s: List[Symbol]): Unit = {
     val nonTerminalIndex = nonTerminals.indexOf(nt)
     val terminalIndex = terminals.indexOf(t);
     if (table(nonTerminalIndex)(terminalIndex) == null) {
       table(nonTerminalIndex)(terminalIndex) = s
     } else {
-      throw new IllegalStateException("not ll(1)")
+      table(nonTerminalIndex)(terminalIndex) = table(nonTerminalIndex)(terminalIndex) ++ s;
+      System.err.println("Grammar is not ll(1) (duplicate parse table entry)")
     }
   }
 }
