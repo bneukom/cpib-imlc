@@ -127,7 +127,7 @@ trait LL1 {
   def genParseTable(productions: List[Production], startSymbol: String): ParseTable = {
     val terminals = ts(productions).toList :+ T("$");
     val nonTerminals = nts(productions).toList;
-    val table = Array.ofDim[List[Symbol]](nonTerminals.size, terminals.size)
+    val table = Array.ofDim[List[Production]](nonTerminals.size, terminals.size)
 
     // TODO first fill with empty lists;
 
@@ -135,14 +135,14 @@ trait LL1 {
       // rule 1
       val firsts = first(prod.r, productions, ListBuffer[Symbol]());
       firsts.foreach(f => {
-        fillTable(nonTerminals, terminals, table, f, prod.l, prod.r)
+        fillTable(nonTerminals, terminals, table, f, prod.l, prod)
       })
 
       // rule 2
       if (nullable(prod.r, productions, ListBuffer[NT]())) {
         val follows = follow(prod.l, productions, startSymbol)
         follows.foreach(f => {
-          fillTable(nonTerminals, terminals, table, f, prod.l, T("") :: Nil)
+          fillTable(nonTerminals, terminals, table, f, prod.l, Production(prod.l, T("") :: Nil))
         })
       }
     })
@@ -151,13 +151,13 @@ trait LL1 {
   }
 
   // TODO use List[Production]
-  private def fillTable(nonTerminals: List[NT], terminals: List[T], table: Array[Array[List[Symbol]]], t: T, nt: NT, s: List[Symbol]): Unit = {
+  private def fillTable(nonTerminals: List[NT], terminals: List[T], table: Array[Array[List[Production]]], t: T, nt: NT, p: Production): Unit = {
     val nonTerminalIndex = nonTerminals.indexOf(nt)
     val terminalIndex = terminals.indexOf(t);
     if (table(nonTerminalIndex)(terminalIndex) == null) {
-      table(nonTerminalIndex)(terminalIndex) = s
+      table(nonTerminalIndex)(terminalIndex) = List(p);
     } else {
-      table(nonTerminalIndex)(terminalIndex) = table(nonTerminalIndex)(terminalIndex) ++ s;
+      table(nonTerminalIndex)(terminalIndex) = p :: table(nonTerminalIndex)(terminalIndex);
       System.err.println("Grammar is not ll(1) (duplicate parse table entry)")
     }
   }

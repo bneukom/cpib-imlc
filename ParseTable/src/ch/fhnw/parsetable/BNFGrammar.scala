@@ -1,8 +1,9 @@
 package ch.fhnw.parsetable
+import scala.collection.convert.WrapAsJava
 
-object BNFGrammar {
+object BNFGrammar extends WrapAsJava {
   case class Grammar(prods: List[Production]);
-  case class Production(l: NT, r: List[Symbol])
+  case class Production(l: NT, r: List[Symbol]) { def r2(): java.util.List[Symbol] = r }
   abstract sealed class Symbol { def valueString = "" };
   case class T(s: String) extends Symbol { override def valueString = if (s.size > 0) s else "espilon" };
   case class NT(s: String) extends Symbol { override def valueString = s };

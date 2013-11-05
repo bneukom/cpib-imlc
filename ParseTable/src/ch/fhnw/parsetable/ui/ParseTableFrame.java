@@ -42,10 +42,14 @@ import javax.swing.text.Document;
 import javax.swing.text.Style;
 import javax.swing.text.StyleConstants;
 
+import ch.fhnw.parsetable.BNFGrammar.Production;
 import ch.fhnw.parsetable.BNFGrammar.Symbol;
 import ch.fhnw.parsetable.BNFGrammar.T;
 import ch.fhnw.parsetable.ParseTable;
 import ch.fhnw.parsetable.ParseTableGenerator;
+import javax.swing.JPopupMenu;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 
 public class ParseTableFrame extends JFrame {
 
@@ -186,7 +190,24 @@ public class ParseTableFrame extends JFrame {
 					parseTable.getColumnModel().getColumn(columnIndex).setCellRenderer(cellRenderer);
 				}
 
-				appendToPane("\n============================\n\n", null);
+				int columnCount = tableModel.getColumnCount();
+				int rowCount = tableModel.getRowCount();
+				outer: for (int c = 0; c < columnCount; c++) {
+					for (int r = 0; r < rowCount; r++) {
+						Object valueAt = tableModel.getValueAt(r, c);
+						if (valueAt != null) {
+							@SuppressWarnings("unchecked")
+							List<Production> p = (List<Production>) valueAt;
+							if (p.size() > 1) {
+								parseTable.changeSelection(r, c, false, false);
+								parseTable.scrollRectToVisible(parseTable.getCellRect(r, c, true));
+								break outer;
+							}
+						}
+					}
+				}
+
+				System.out.println("\n============================\n\n");
 			}
 		});
 		final GroupLayout gl_panel_2 = new GroupLayout(panel_2);
@@ -211,6 +232,17 @@ public class ParseTableFrame extends JFrame {
 		logTextPane = new JTextPane();
 		logTextPane.setEditable(false);
 		logScrollPane.setViewportView(logTextPane);
+
+		JPopupMenu popupMenu = new JPopupMenu();
+		addPopup(logTextPane, popupMenu);
+
+		JMenuItem mntmClear = new JMenuItem("Clear");
+		mntmClear.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				logTextPane.setText("");
+			}
+		});
+		popupMenu.add(mntmClear);
 		contentPane.setLayout(gl_contentPane);
 		errorStyle = logTextPane.addStyle("errorStyle", null);
 		StyleConstants.setForeground(errorStyle, Color.red);
@@ -299,7 +331,7 @@ public class ParseTableFrame extends JFrame {
 	private static final class ParseTableModel extends AbstractTableModel {
 
 		private final ParseTable data;
-		private final List<Symbol>[][] tableData;
+		private final List<Production>[][] tableData;
 
 		public ParseTableModel(final ParseTable data) {
 			super();
@@ -319,7 +351,7 @@ public class ParseTableFrame extends JFrame {
 
 		@Override
 		public Object getValueAt(final int rowIndex, final int columnIndex) {
-			final List<Symbol> symbolsAt = tableData[rowIndex][columnIndex];
+			final List<Production> symbolsAt = tableData[rowIndex][columnIndex];
 			if (symbolsAt != null && symbolsAt.size() > 0) {
 				return symbolsAt;
 			}
@@ -332,25 +364,55 @@ public class ParseTableFrame extends JFrame {
 		@Override
 		@SuppressWarnings("unchecked")
 		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-			final List<Symbol> symbols = (List<Symbol>) value;
-			final String stringValue = value != null ? symbolString(symbols) : "";
+			final List<Production> productions = (List<Production>) value;
+			final String stringValue = value != null ? productionsString(productions) : "";
 			Component tableCellRendererComponent = super.getTableCellRendererComponent(table, stringValue, isSelected, hasFocus, row, column);
 
 			// test
-			if (symbols != null && symbols.size() > 1)
-				tableCellRendererComponent.setForeground(Color.BLACK);
+			if (productions != null && productions.size() > 1)
+				tableCellRendererComponent.setForeground(Color.RED);
 			else
 				tableCellRendererComponent.setForeground(Color.BLACK);
 
 			return tableCellRendererComponent;
 		}
 
-		private static String symbolString(final List<Symbol> input) {
+		private static String productionsString(final List<Production> productions) {
 			String s = "";
-			for (final Symbol symbol : input) {
-				s += symbol.valueString() + ", ";
+			for (int i = 0; i < productions.size(); ++i) {
+				final Production prod = productions.get(i);
+				s += "[" + symbolString(prod.r2()) + (i < productions.size() - 1 ? "], " : "]");
 			}
 			return s;
 		}
+
+		private static String symbolString(final List<Symbol> input) {
+			String s = "";
+			for (int i = 0; i < input.size(); ++i) {
+				final Symbol symbol = input.get(i);
+				s += symbol.valueString() + (i < input.size() - 1 ? ", " : "");
+			}
+			return s;
+		}
+	}
+
+	private static void addPopup(Component component, final JPopupMenu popup) {
+		component.addMouseListener(new MouseAdapter() {
+			public void mousePressed(MouseEvent e) {
+				if (e.isPopupTrigger()) {
+					showMenu(e);
+				}
+			}
+
+			public void mouseReleased(MouseEvent e) {
+				if (e.isPopupTrigger()) {
+					showMenu(e);
+				}
+			}
+
+			private void showMenu(MouseEvent e) {
+				popup.show(e.getComponent(), e.getX(), e.getY());
+			}
+		});
 	}
 }

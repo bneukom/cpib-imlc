@@ -18,6 +18,17 @@ globImp ::= [FLOWMODE] [CHANGEMODE] IDENT;
 cpsDecl ::= decl {SEMICOLON decl};
 cpsStoDecl ::= stoDecl {SEMICOLON stoDecl};
 
+  def typeparser: Parser[Type] = positioned(atomtype | listType)
+  def atomtype: Parser[AtomType] = positioned("int" ^^^ { IntType } | "bool" ^^^ { BoolType })
+  def listType: Parser[ListType] = positioned("[" ~ typeparser ~ "]" ^^ { case "[" ~ t ~ "]" => ListType(t) })
+  
+  def literal: Parser[Literal] = positioned(intLiteral | boolLiteral | listLiteral)
+  def intLiteral: Parser[IntLiteral] = positioned("[0-9]+".r ^^ { x => IntLiteral(x.toInt) })
+  def boolLiteral: Parser[BoolLiteral] = positioned(("true" | "false") ^^ { x => BoolLiteral(x.toBoolean) })
+  def listLiteral: Parser[ListLiteral] = positioned("[" ~ repsep(expr, ",") ~ "]" ^^ { case "[" ~ l ~ "]" => ListLiteral(l) })
+
+  
+  
 progParamList ::= LPAREN [progParam {COMMA progParam}] RPAREN;
 progParam ::= [FLOWMODE] [CHANGEMODE] typedIdent;
 paramList ::= LPAREN [param {COMMA param}] RPAREN;
@@ -40,7 +51,7 @@ term0 ::= term1 {BOOLOPR term1};
 term1 ::= term2 [RELOPR term2];
 term2 ::= term3 {ADDOPR term3};
 term3 ::= factor {MULTOPR factor};
-factor ::= LITERAL
+factor ::= literal
 		| IDENT [INIT | exprList]
 		| monadicOpr factor
 		| LPAREN expr RPAREN;
