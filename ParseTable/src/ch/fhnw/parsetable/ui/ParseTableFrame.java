@@ -50,13 +50,19 @@ import ch.fhnw.parsetable.ParseTableGenerator;
 import javax.swing.JPopupMenu;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.GridLayout;
+import java.awt.GridBagLayout;
+import java.awt.GridBagConstraints;
+import java.awt.Insets;
 
 public class ParseTableFrame extends JFrame {
 
 	private final JPanel contentPane;
 	private final JTable parseTable;
 	private final JTextArea parseTableTextArea;
+	
 	private JTextPane logTextPane;
+	private JTextPane errorTextPane;
 	private Style errorStyle;
 
 	/**
@@ -143,6 +149,9 @@ public class ParseTableFrame extends JFrame {
 		final JButton parseButton = new JButton("Generate Parse Table");
 		parseButton.addActionListener(new ActionListener() {
 			public void actionPerformed(final ActionEvent e) {
+				logTextPane.setText("");
+				errorTextPane.setText("");
+				
 				final ParseTableGenerator gen = new ParseTableGenerator();
 				final ParseTable generateParseTable = gen.generateParseTable(parseTableTextArea.getText());
 				final ParseTableModel tableModel = new ParseTableModel(generateParseTable);
@@ -206,8 +215,6 @@ public class ParseTableFrame extends JFrame {
 						}
 					}
 				}
-
-				System.out.println("\n============================\n\n");
 			}
 		});
 		final GroupLayout gl_panel_2 = new GroupLayout(panel_2);
@@ -224,10 +231,8 @@ public class ParseTableFrame extends JFrame {
 		parseTableTextArea = new JTextArea();
 		parseTableScrollPane.setViewportView(parseTableTextArea);
 		panel_2.setLayout(gl_panel_2);
-		logPanel.setLayout(new BorderLayout(0, 0));
 
 		final JScrollPane logScrollPane = new JScrollPane();
-		logPanel.add(logScrollPane, BorderLayout.CENTER);
 
 		logTextPane = new JTextPane();
 		logTextPane.setEditable(false);
@@ -236,29 +241,48 @@ public class ParseTableFrame extends JFrame {
 		JPopupMenu popupMenu = new JPopupMenu();
 		addPopup(logTextPane, popupMenu);
 
-		JMenuItem mntmClear = new JMenuItem("Clear");
-		mntmClear.addActionListener(new ActionListener() {
+		JMenuItem menuClearLog = new JMenuItem("Clear");
+		menuClearLog.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
 				logTextPane.setText("");
 			}
 		});
-		popupMenu.add(mntmClear);
-		contentPane.setLayout(gl_contentPane);
+		popupMenu.add(menuClearLog);
 		errorStyle = logTextPane.addStyle("errorStyle", null);
+
+		JScrollPane errorScrollPane = new JScrollPane();
+
+		errorTextPane = new JTextPane();
+		errorTextPane.setEditable(false);
+		errorScrollPane.setViewportView(errorTextPane);
+
+		JPopupMenu errorPopupMenu = new JPopupMenu();
+		addPopup(errorTextPane, errorPopupMenu);
+
+		JMenuItem menuClearErrors = new JMenuItem("Clear");
+		errorPopupMenu.add(menuClearErrors);
+		GroupLayout gl_logPanel = new GroupLayout(logPanel);
+		gl_logPanel.setHorizontalGroup(gl_logPanel.createParallelGroup(Alignment.LEADING).addGroup(
+				gl_logPanel.createSequentialGroup().addComponent(logScrollPane, GroupLayout.DEFAULT_SIZE, 572, Short.MAX_VALUE).addGap(5)
+						.addComponent(errorScrollPane, GroupLayout.DEFAULT_SIZE, 577, Short.MAX_VALUE).addGap(1)));
+		gl_logPanel.setVerticalGroup(gl_logPanel.createParallelGroup(Alignment.LEADING).addComponent(logScrollPane, GroupLayout.PREFERRED_SIZE, 157, GroupLayout.PREFERRED_SIZE)
+				.addComponent(errorScrollPane, GroupLayout.PREFERRED_SIZE, 157, GroupLayout.PREFERRED_SIZE));
+		logPanel.setLayout(gl_logPanel);
+		contentPane.setLayout(gl_contentPane);
 		StyleConstants.setForeground(errorStyle, Color.red);
 	}
 
-	private void appendToPane(final String text, final Style style) {
+	private void appendToPane(final JTextPane pane, final String text, final Style style) {
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
-				Document doc = logTextPane.getDocument();
+				Document doc = pane.getDocument();
 				try {
 					doc.insertString(doc.getLength(), text, style);
 				} catch (BadLocationException e) {
 					throw new RuntimeException(e);
 				}
 
-				logTextPane.setCaretPosition(doc.getLength() - 1);
+				pane.setCaretPosition(doc.getLength() - 1);
 			}
 		});
 	}
@@ -267,12 +291,12 @@ public class ParseTableFrame extends JFrame {
 		OutputStream out = new OutputStream() {
 			@Override
 			public void write(int b) throws IOException {
-				appendToPane(String.valueOf((char) b), null);
+				appendToPane(logTextPane, String.valueOf((char) b), null);
 			}
 
 			@Override
 			public void write(byte[] b, int off, int len) throws IOException {
-				appendToPane(new String(b, off, len), null);
+				appendToPane(logTextPane, new String(b, off, len), null);
 			}
 
 			@Override
@@ -284,12 +308,12 @@ public class ParseTableFrame extends JFrame {
 		OutputStream err = new OutputStream() {
 			@Override
 			public void write(int b) throws IOException {
-				appendToPane(String.valueOf((char) b), errorStyle);
+				appendToPane(errorTextPane, String.valueOf((char) b), errorStyle);
 			}
 
 			@Override
 			public void write(byte[] b, int off, int len) throws IOException {
-				appendToPane(new String(b, off, len), errorStyle);
+				appendToPane(errorTextPane, new String(b, off, len), errorStyle);
 			}
 
 			@Override
