@@ -1,7 +1,11 @@
 package ch.fhnw.parsetable
 
-import ch.fhnw.parsetable.BNFGrammar._
 import scala.collection.mutable.ListBuffer
+
+import ch.fhnw.parsetable.BNFGrammar.NT
+import ch.fhnw.parsetable.BNFGrammar.PraseTableException
+import ch.fhnw.parsetable.BNFGrammar.checkGrammar
+import ch.fhnw.parsetable.BNFGrammar.printGrammar
 
 class ParseTableGenerator extends EBNFParsers with BNFTransformer with LL1 {
 
@@ -11,7 +15,22 @@ class ParseTableGenerator extends EBNFParsers with BNFTransformer with LL1 {
     println()
 
     val ebnfGrammar = parse(ebnfGrammarString)
-    val startSymbol = ebnfGrammar.prods.head.l.s
+
+    if (ebnfGrammar.prods.isEmpty) return new ParseTable(List(), List(), Array());
+
+    val startProduction = ebnfGrammar.prods.head
+    val startSymbol = startProduction.l.s
+
+    println("Check Grammar:")
+    System.out.flush();
+    
+    val res = checkGrammar(ebnfGrammar, startProduction);
+    res.foreach(x => {
+      if (!x._2._1) System.err.println("Warning; unreachable nonterminal found: " + x._1.s)
+      if (!x._2._2 && x._1.s != startSymbol) System.err.println("Warning; undefined nonterminal used: " + x._1.s)
+    })
+    System.err.println()
+    System.err.flush();
 
     println("Parsed Grammar:")
     println(ebnfGrammar)
@@ -60,7 +79,7 @@ object Main {
   def main(args: Array[String]) {
     try {
       val p = new ParseTableGenerator;
-      p.generateParseTableFromPath("grammars/imlgrammar.ebnf")
+      p.generateParseTableFromPath("grammars/imlgrammarunreachable.ebnf")
     } catch {
       case e: PraseTableException => e.printStackTrace();
     }

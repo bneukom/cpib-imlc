@@ -25,12 +25,12 @@ param ::= [FLOWMODE] [MECHMODE] [CHANGEMODE] typedIdent;
 typedIdent ::= IDENT COLON ATOMTYPE;
 
 cmd ::= SKIP
-	| expr BECOMES expr
-	| IF expr THEN cpsCmd ELSE cpsCmd ENDIF
-	| WHILE expr DO cpsCmd ENDWHILE
+	| BECOMES
+	| IF THEN cpsCmd ELSE cpsCmd ENDIF
+	| WHILE DO cpsCmd ENDWHILE
 	| CALL IDENT exprList [globInits]
-	| DEBUGIN expr
-	| DEBUGOUT expr;
+	| DEBUGIN
+	| DEBUGOUT;
 cpsCmd ::= cmd {SEMICOLON cmd};
 globInits ::= INIT idents;
 idents ::= IDENT {COMMA IDENT};
@@ -43,5 +43,5 @@ factor ::= LITERAL
 		| IDENT [INIT | exprList]
 		| monadicOpr factor
 		| LPAREN expr RPAREN;
-exprList ::= LPAREN [expr {COMMA expr}] RPAREN;
+
 monadicOpr ::= NOT | ADDOPR
