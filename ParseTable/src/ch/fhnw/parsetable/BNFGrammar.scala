@@ -2,11 +2,13 @@ package ch.fhnw.parsetable
 import scala.collection.convert.WrapAsJava
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.ListBuffer
+import scala.util.parsing.input.Positional
 
 object BNFGrammar extends WrapAsJava {
-  case class Grammar(prods: List[Production]);
-  case class Production(l: NT, r: List[Symbol]) { def r2(): java.util.List[Symbol] = r }
-  abstract sealed class Symbol { def valueString = "" };
+  abstract sealed class GrammarRoot extends Positional
+  case class Grammar(prods: List[Production]) extends GrammarRoot;
+  case class Production(l: NT, r: List[Symbol]) extends GrammarRoot { def r2(): java.util.List[Symbol] = r }
+  abstract sealed class Symbol extends GrammarRoot { def valueString = "" };
   case class T(s: String) extends Symbol { override def valueString = if (s.size > 0) s else "espilon" };
   case class NT(s: String) extends Symbol { override def valueString = s };
   case class Rep(r: List[Symbol]) extends Symbol
@@ -17,7 +19,7 @@ object BNFGrammar extends WrapAsJava {
   def checkGrammar(g: Grammar, root: Production): Map[NT, (Boolean, Boolean)] = {
     val undefined = ListBuffer[NT]();
     val reachableMap = new HashMap[NT, Boolean]
-    val nts = g.prods.collect({ case p => p.l }).distinct
+    val nts = g.prods.tail.collect({ case p => p.l }).distinct
 
     // check if all nts are reachable from the root production
     nts.foreach(nt => reachableMap += (nt -> reachable(nt, root.r, g.prods, undefined, ListBuffer())));

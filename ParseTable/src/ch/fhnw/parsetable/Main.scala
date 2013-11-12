@@ -26,10 +26,9 @@ class ParseTableGenerator extends EBNFParsers with BNFTransformer with LL1 {
     
     val res = checkGrammar(ebnfGrammar, startProduction);
     res.foreach(x => {
-      if (!x._2._1) System.err.println("Warning; unreachable nonterminal found: " + x._1.s)
+      if (!x._2._1) System.err.println("unreachable nonterminal found: " + x._1.s)
       if (!x._2._2 && x._1.s != startSymbol) System.err.println("Warning; undefined nonterminal used: " + x._1.s)
     })
-    System.err.println()
     System.err.flush();
 
     println("Parsed Grammar:")
@@ -79,9 +78,9 @@ object Main {
   def main(args: Array[String]) {
     try {
       val p = new ParseTableGenerator;
-      p.generateParseTableFromPath("grammars/imlgrammarunreachable.ebnf")
+      p.generateParseTableFromPath("grammars/imlgrammar.ebnf")
     } catch {
-      case e: PraseTableException => e.printStackTrace();
+      case e: PraseTableException => System.err.println(e.getMessage())
     }
   }
 }

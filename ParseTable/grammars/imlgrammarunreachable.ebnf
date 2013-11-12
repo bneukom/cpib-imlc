@@ -28,7 +28,7 @@ cmd ::= SKIP
 	| BECOMES
 	| IF THEN cpsCmd ELSE cpsCmd ENDIF
 	| WHILE DO cpsCmd ENDWHILE
-	| CALL IDENT exprList [globInits]
+	| CALL IDENT [globInits]
 	| DEBUGIN
 	| DEBUGOUT;
 cpsCmd ::= cmd {SEMICOLON cmd};

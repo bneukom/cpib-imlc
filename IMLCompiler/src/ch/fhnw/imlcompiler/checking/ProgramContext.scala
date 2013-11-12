@@ -11,6 +11,7 @@ import ch.fhnw.imlcompiler.AST.Decl
 import scala.collection.mutable.LinkedList
 import scala.collection.mutable.ListBuffer
 
+// TODO really object??!!
 object ProgramContext {
   case class Context(globalStoreScope: GlobalStoreScope, localStoreScope: LocalStoreScopes, globalMethodScope: GlobalMethodScope)
 

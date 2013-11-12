@@ -6,19 +6,27 @@ import java.awt.Component;
 import java.awt.EventQueue;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.List;
 
 import javax.swing.GroupLayout;
 import javax.swing.GroupLayout.Alignment;
 import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTable;
@@ -35,6 +43,7 @@ import javax.swing.border.TitledBorder;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableColumnModel;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 import javax.swing.text.BadLocationException;
@@ -47,23 +56,19 @@ import ch.fhnw.parsetable.BNFGrammar.Symbol;
 import ch.fhnw.parsetable.BNFGrammar.T;
 import ch.fhnw.parsetable.ParseTable;
 import ch.fhnw.parsetable.ParseTableGenerator;
-import javax.swing.JPopupMenu;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
-import java.awt.GridLayout;
-import java.awt.GridBagLayout;
-import java.awt.GridBagConstraints;
-import java.awt.Insets;
 
 public class ParseTableFrame extends JFrame {
 
 	private final JPanel contentPane;
 	private final JTable parseTable;
 	private final JTextArea parseTableTextArea;
-	
+
 	private JTextPane logTextPane;
 	private JTextPane errorTextPane;
 	private Style errorStyle;
+
+	private ParseTable currentParseTable;
+	private JScrollPane tableScrollPane;
 
 	/**
 	 * Launch the application.
@@ -110,6 +115,33 @@ public class ParseTableFrame extends JFrame {
 			}
 		});
 		mnFile.add(mntmOpen);
+
+		JMenuItem mntmExport = new JMenuItem("Export");
+		mntmExport.addActionListener(new ActionListener() {
+			public void actionPerformed(ActionEvent e) {
+				final JFileChooser fc = new JFileChooser();
+				int returnVal = fc.showSaveDialog(ParseTableFrame.this);
+				if (returnVal == JFileChooser.APPROVE_OPTION && currentParseTable != null) {
+					String export = "";
+					final List<Production>[][] table = currentParseTable.table2();
+					for (int y = 0; y < table.length; ++y) {
+						String row = "";
+						for (int x = 0; x < table[y].length; ++x) {
+							row += (productionsString(table[y][x]) + ";");
+						}
+						export += (row + "\n");
+					}
+					File selectedFile = fc.getSelectedFile();
+
+					try {
+						Files.write(Paths.get(selectedFile.toURI()), export.getBytes(), StandardOpenOption.CREATE);
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+				}
+			}
+		});
+		mnFile.add(mntmExport);
 		contentPane = new JPanel();
 		contentPane.setBorder(new EmptyBorder(5, 5, 5, 5));
 		setContentPane(contentPane);
@@ -133,7 +165,7 @@ public class ParseTableFrame extends JFrame {
 		splitPane.setDividerLocation(200);
 		splitPane.setOrientation(JSplitPane.VERTICAL_SPLIT);
 
-		final JScrollPane tableScrollPane = new JScrollPane();
+		tableScrollPane = new JScrollPane();
 		tableScrollPane.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
 		tableScrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_ALWAYS);
 		splitPane.setRightComponent(tableScrollPane);
@@ -151,10 +183,19 @@ public class ParseTableFrame extends JFrame {
 			public void actionPerformed(final ActionEvent e) {
 				logTextPane.setText("");
 				errorTextPane.setText("");
-				
+
 				final ParseTableGenerator gen = new ParseTableGenerator();
-				final ParseTable generateParseTable = gen.generateParseTable(parseTableTextArea.getText());
-				final ParseTableModel tableModel = new ParseTableModel(generateParseTable);
+
+				try {
+					currentParseTable = gen.generateParseTable(parseTableTextArea.getText());
+				} catch (Exception exception) {
+					System.err.println(exception.getMessage());
+					parseTable.setModel(new DefaultTableModel());
+					tableScrollPane.setRowHeader(null);
+					return;
+				}
+
+				final ParseTableModel tableModel = new ParseTableModel(currentParseTable);
 
 				parseTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
 				parseTable.setModel(tableModel);
@@ -171,7 +212,7 @@ public class ParseTableFrame extends JFrame {
 					}
 				};
 
-				final RowHeaderModel rowHeaderModel = new RowHeaderModel(generateParseTable);
+				final RowHeaderModel rowHeaderModel = new RowHeaderModel(currentParseTable);
 
 				JTable headerColumn = new JTable(rowHeaderModel, rowHeaderColumnModel);
 				headerColumn.createDefaultColumnsFromModel();
@@ -192,7 +233,7 @@ public class ParseTableFrame extends JFrame {
 				tableScrollPane.setCorner(ScrollPaneConstants.UPPER_LEFT_CORNER, headerColumn.getTableHeader());
 
 				final ParseTableCellRenderer cellRenderer = new ParseTableCellRenderer();
-				final List<T> terminals = generateParseTable.terminals2();
+				final List<T> terminals = currentParseTable.terminals2();
 				for (int columnIndex = 0; columnIndex < terminals.size(); ++columnIndex) {
 					final T terminal = terminals.get(columnIndex);
 					parseTable.getColumnModel().getColumn(columnIndex).setHeaderValue(terminal.s());
@@ -270,6 +311,24 @@ public class ParseTableFrame extends JFrame {
 		logPanel.setLayout(gl_logPanel);
 		contentPane.setLayout(gl_contentPane);
 		StyleConstants.setForeground(errorStyle, Color.red);
+	}
+
+	private static String productionsString(final List<Production> productions) {
+		String s = "";
+		for (int i = 0; i < productions.size(); ++i) {
+			final Production prod = productions.get(i);
+			s += "[" + symbolString(prod.r2()) + (i < productions.size() - 1 ? "], " : "]");
+		}
+		return s;
+	}
+
+	private static String symbolString(final List<Symbol> input) {
+		String s = "";
+		for (int i = 0; i < input.size(); ++i) {
+			final Symbol symbol = input.get(i);
+			s += symbol.valueString() + (i < input.size() - 1 ? ", " : "");
+		}
+		return s;
 	}
 
 	private void appendToPane(final JTextPane pane, final String text, final Style style) {
@@ -401,23 +460,6 @@ public class ParseTableFrame extends JFrame {
 			return tableCellRendererComponent;
 		}
 
-		private static String productionsString(final List<Production> productions) {
-			String s = "";
-			for (int i = 0; i < productions.size(); ++i) {
-				final Production prod = productions.get(i);
-				s += "[" + symbolString(prod.r2()) + (i < productions.size() - 1 ? "], " : "]");
-			}
-			return s;
-		}
-
-		private static String symbolString(final List<Symbol> input) {
-			String s = "";
-			for (int i = 0; i < input.size(); ++i) {
-				final Symbol symbol = input.get(i);
-				s += symbol.valueString() + (i < input.size() - 1 ? ", " : "");
-			}
-			return s;
-		}
 	}
 
 	private static void addPopup(Component component, final JPopupMenu popup) {
