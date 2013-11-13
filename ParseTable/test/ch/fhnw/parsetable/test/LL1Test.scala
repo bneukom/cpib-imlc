@@ -13,35 +13,40 @@ object LL1Test extends LL1 {
     val bNT = NT("b");
     val cNT = NT("c");
     val epsT = T("");
-    val oinkT = T("OINK");
-    val boinkT = T("BOINK");
-    val troinkT = T("TROINK");
-    //    val prods =
-    //      Production(aNT, epsT :: Nil) ::
-    //        Production(aNT, boinkT :: Nil) ::
-    //        Production(aNT, oinkT :: Nil) ::
-    //        Production(bNT, aNT :: oinkT :: Nil) ::
-    //        Production(cNT, troinkT :: Nil) ::
-    //        Production(cNT, bNT :: Nil) :: Nil
+    val aT = T("A");
+    val bT = T("B");
+    val cT = T("C");
 
     // 
-    val prods =
-      Production(bNT, oinkT :: bNT :: Nil) :: Nil
-    // TODO inderect left recursion will fail
     //    val prods =
-    //      Production(bNT, aNT :: Nil) ::
-    //        Production(aNT, bNT :: Nil) :: Nil
+    //      Production(bNT, aT :: bNT :: aT :: Nil) ::
+    //        Production(cNT, bNT :: bT :: Nil) :: Nil
 
-    val grammar = Grammar(prods);
+    // c ::= Ab
+    // b ::=  
+    // b ::= a
+    // a ::= Bb
+
+    val prods2 =
+      Production(cNT, aT :: bNT :: Nil) ::
+        Production(bNT, epsT :: Nil) ::
+        Production(bNT, aNT :: Nil) ::
+        Production(aNT, bT :: bNT :: Nil) :: Nil
+    //      Production(cNT, bNT :: Nil) ::
+    //        Production(bNT, cNT :: Nil) :: Nil
+
+    val grammar = Grammar(prods2);
 
     println("grammar:");
     printGrammar(grammar);
     println();
 
-    val nts = prods.collect({ case x => x.l }).distinct
+    val nts = prods2.collect({ case x => x.l }).distinct
 
     println("follow:");
-    nts.foreach(nt => println(nt.s + " follow: " + follow(nt, prods)))
+    nts.foreach(nt => println(nt.s + " nul: " + nullable(nt, prods2, ListBuffer[NT]())))
+    nts.foreach(nt => println(nt.s + " first: " + first(nt, prods2)))
+    nts.foreach(nt => println(nt.s + " follow: " + follow(nt, prods2, cNT.s)))
   }
 
   def testFirst() {
@@ -49,15 +54,15 @@ object LL1Test extends LL1 {
     val bNT = NT("b");
     val cNT = NT("c");
     val epsT = T("");
-    val oinkT = T("OINK");
-    val boinkT = T("BOINK");
-    val troinkT = T("TROINK");
+    val aT = T("A");
+    val bT = T("B");
+    val cT = T("C");
     val prods =
       Production(aNT, epsT :: Nil) ::
-        Production(aNT, boinkT :: Nil) ::
-        Production(aNT, oinkT :: Nil) ::
-        Production(bNT, aNT :: oinkT :: Nil) ::
-        Production(cNT, troinkT :: Nil) ::
+        Production(aNT, bT :: Nil) ::
+        Production(aNT, aT :: Nil) ::
+        Production(bNT, aNT :: aT :: Nil) ::
+        Production(cNT, cT :: Nil) ::
         Production(cNT, bNT :: Nil) :: Nil
 
     val grammar = Grammar(prods);
@@ -77,13 +82,14 @@ object LL1Test extends LL1 {
     val bNT = NT("b");
     val cNT = NT("c");
     val epsT = T("");
-    val oinkT = T("OINK");
-    val prods = Production(aNT, epsT :: Nil) ::
-      Production(aNT, oinkT :: Nil) ::
-      Production(bNT, oinkT :: Nil) ::
-      Production(bNT, aNT :: oinkT :: Nil) ::
-      Production(cNT, oinkT :: Nil) ::
-      Production(cNT, aNT :: Nil) :: Nil
+    val aT = T("A");
+    val prods =
+      Production(aNT, epsT :: Nil) ::
+        Production(aNT, aT :: Nil) ::
+        Production(bNT, aT :: Nil) ::
+        Production(bNT, aNT :: aT :: Nil) ::
+        Production(cNT, aT :: Nil) ::
+        Production(cNT, aNT :: Nil) :: Nil
 
     val grammar = Grammar(prods);
 

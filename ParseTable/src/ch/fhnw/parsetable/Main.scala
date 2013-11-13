@@ -78,7 +78,7 @@ object Main {
   def main(args: Array[String]) {
     try {
       val p = new ParseTableGenerator;
-      p.generateParseTableFromPath("grammars/imlgrammar.ebnf")
+      p.generateParseTableFromPath("grammars/imlwithlistsgrammar.ebnf")
     } catch {
       case e: PraseTableException => System.err.println(e.getMessage())
     }

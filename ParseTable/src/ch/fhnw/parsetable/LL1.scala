@@ -54,7 +54,6 @@ trait LL1 {
   }
   def first(nt: Symbol, prods: List[Production], visited: ListBuffer[Symbol] = ListBuffer[Symbol]()): Set[T] = {
     if (visited.contains(nt)) return Set()
-
     visited += nt
 
     val firsts = new HashSet[T]
@@ -78,7 +77,10 @@ trait LL1 {
     return firsts.toSet;
   }
 
-  def follow(nt: NT, prods: List[Production], startSymbol: String = "e"): Set[T] = {
+  def follow(nt: NT, prods: List[Production], startSymbol: String, visited: ListBuffer[Symbol] = ListBuffer[Symbol](), cache: Boolean = true): Set[T] = {
+    if (visited.contains(nt)) return Set()
+    visited += nt
+
     val cached = followCache.get(nt)
     if (cached.isDefined) return cached.get;
 
@@ -86,14 +88,13 @@ trait LL1 {
     if (nt.s == startSymbol) follows += T("$")
 
     prods.foreach(prod => {
-      headTailZip(prod.r).foreach(t => {
+      val headTail = headTailZip(prod.r);
+      headTail.foreach(t => {
         if (t._1 == nt) {
           if (nullable(t._2, prods, ListBuffer[NT]()) && nt != prod.l) {
-            // TODO implement something similar to first() and nullable()?
-            // marked as visited
-            followCache += (nt -> Set())
-
-            follows ++= first(t._2, prods, ListBuffer[Symbol]()) ++ follow(prod.l, prods, startSymbol)
+            val f = first(t._2, prods, ListBuffer[Symbol]())
+            val fol = follow(prod.l, prods, startSymbol, visited, false); // no NOT cache due to possible invalid results when in circles
+            follows ++= (f ++ fol)
           } else {
             follows ++= first(t._2, prods, ListBuffer[Symbol]());
           }
@@ -101,7 +102,7 @@ trait LL1 {
       })
     })
 
-    followCache += (nt -> follows.toSet)
+    if (cache) followCache += (nt -> follows.toSet)
     follows.toSet
   }
 
