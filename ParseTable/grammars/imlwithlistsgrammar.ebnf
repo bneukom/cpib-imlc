@@ -1,7 +1,6 @@
 program ::=
 			PROGRAM IDENT progParamList
 			[GLOBAL cpsDecl] DO cpsCmd ENDPROGRAM;
-			
 decl ::= stoDecl
 		| funDecl
 		| procDecl;
@@ -17,29 +16,20 @@ globImps ::= globImp {COMMA globImp};
 globImp ::= [FLOWMODE] [CHANGEMODE] IDENT;
 cpsDecl ::= decl {SEMICOLON decl};
 cpsStoDecl ::= stoDecl {SEMICOLON stoDecl};
-
-  def typeparser: Parser[Type] = positioned(atomtype | listType)
-  def atomtype: Parser[AtomType] = positioned("int" ^^^ { IntType } | "bool" ^^^ { BoolType })
-  def listType: Parser[ListType] = positioned("[" ~ typeparser ~ "]" ^^ { case "[" ~ t ~ "]" => ListType(t) })
-  
-  def literal: Parser[Literal] = positioned(intLiteral | boolLiteral | listLiteral)
-  def intLiteral: Parser[IntLiteral] = positioned("[0-9]+".r ^^ { x => IntLiteral(x.toInt) })
-  def boolLiteral: Parser[BoolLiteral] = positioned(("true" | "false") ^^ { x => BoolLiteral(x.toBoolean) })
-  def listLiteral: Parser[ListLiteral] = positioned("[" ~ repsep(expr, ",") ~ "]" ^^ { case "[" ~ l ~ "]" => ListLiteral(l) })
-
-  
   
 progParamList ::= LPAREN [progParam {COMMA progParam}] RPAREN;
 progParam ::= [FLOWMODE] [CHANGEMODE] typedIdent;
 paramList ::= LPAREN [param {COMMA param}] RPAREN;
 param ::= [FLOWMODE] [MECHMODE] [CHANGEMODE] typedIdent;
-typedIdent ::= IDENT COLON ATOMTYPE;
+typedIdent ::= IDENT COLON type;
+type ::=  atomType | LBRACKET type RBRACKET;
+atomType ::= INT | BOOL;
 
 cmd ::= SKIP
-	| expr BECOMES expr
+	| CALL expr BECOMES expr
 	| IF expr THEN cpsCmd ELSE cpsCmd ENDIF
 	| WHILE expr DO cpsCmd ENDWHILE
-	| CALL IDENT exprList [globInits]
+	| IDENT exprList [globInits]
 	| DEBUGIN expr
 	| DEBUGOUT expr;
 cpsCmd ::= cmd {SEMICOLON cmd};
@@ -56,4 +46,8 @@ factor ::= literal
 		| monadicOpr factor
 		| LPAREN expr RPAREN;
 exprList ::= LPAREN [expr {COMMA expr}] RPAREN;
-monadicOpr ::= NOT | ADDOPR | HEAD | TAIL | SIZE
+monadicOpr ::= NOT | ADDOPR | HEAD | TAIL | SIZE;
+
+
+literal ::= INTLITERAL | BOOLLITERAL | listLiteral;
+listLiteral ::= LBRACKET [expr {COMMA expr}] RBRACKET
