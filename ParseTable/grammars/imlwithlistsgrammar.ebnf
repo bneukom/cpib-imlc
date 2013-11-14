@@ -36,7 +36,7 @@ cpsCmd ::= cmd {SEMICOLON cmd};
 globInits ::= INIT idents;
 idents ::= IDENT {COMMA IDENT};
 
-expr ::= term0 [CONCATOPR expr];
+expr ::= term0 {CONCATOPR term0};
 term0 ::= term1 {BOOLOPR term1};
 term1 ::= term2 [RELOPR term2];
 term2 ::= term3 {ADDOPR term3};
