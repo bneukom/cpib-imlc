@@ -107,9 +107,9 @@ Listen für IML sind wie folgt definiert
     
   \item Listen sind geordnete Ansammlungen von Objekten mit dem gleichen Datentyp. Beispiel: $[1,2,3]$ ist eine Liste vom Typ $int$ mit den Werten 1, 2 und 3. Oder mit Verschachtelung $[[true, false], [true]]$ ist eine Liste vom Typ Liste von bools mit den Werten $[true,false]$ und $[true]$.
 
-  \item Der Typ einer Liste ist definiert durch das erste Element (falls das Element eine Liste ist: erste nicht leere) der Liste. Beispiel:  $[[1,2,3],[3,4,5]]$ ist eine Liste vom Typ Liste von $int$s oder $[[], [true]]$ ist vom Typ Liste von bools.
+  \item Der Typ einer Liste ist definiert durch das erste Element (falls das Element eine Liste ist, das erste nicht leere) der Liste. Beispiel:  $[[1,2,3],[3,4,5]]$ ist eine Liste vom Typ Liste von $int$s oder $[[], [true]]$ ist vom Typ Liste von bools.
 
-  \item Die leere Liste $[]$ ist vom Typ $Any$ (welcher in IML selber nicht verwendet werden kann). Der Typ $Any$ ist kompatibel mit allen anderen Typen. Beispiel: für die Deklaration des Stores $var l:[[int]]$ ist $l := []$ so wie auch $l := [[]]$ eine valide Zuweisung.
+  \item Die leere Liste $[]$ ist vom Typ Liste von $Any$ (welcher in IML nicht verwendet werden kann). Der Typ $Any$ ist kompatibel mit allen anderen Typen. Beispiel: für die Deklaration des Stores $var l:[[int]]$ ist $l := []$ (Type $[Any]$) so wie auch $l := [[]]$ (Type $[[Any]]$) eine valide Zuweisung.
 
   \item Listen sind immutable, d.h. die Werte einer Liste können nicht verändert werden. Es können nur mit den operationen $::$ (concatenation) und $tail$ neue Listen konstruiert werden,
 \end{enumerate} 
@@ -120,30 +120,30 @@ Listen für IML sind wie folgt definiert
 \begin{align*}
 Type :: [Type] \rightarrow [Type]
 \end{align*}
-Der $::$ Operator erstellt eine neue Liste mit dem Operand auf der Linken seite als Head und dem Operand der rechten Seite als Tail. Beispiel: die Expression $1 :: [2,3,4]$ gibt die Liste $[1,2,3,4]$ zurück.
+Der $::$ Operator erstellt eine neue Liste mit dem Operand auf der Linken Seite als Head und dem Operand der rechten Seite als Tail. Beispiel: die Expression $1 :: [2,3,4]$ gibt die Liste $[1,2,3,4]$ zurück.
 
 \subsection{Head}
 \begin{align*}
 head\;[Type] \rightarrow Type
 \end{align*}
-Der $head$ Operator gibt das erste Element einer Liste zurück. Beispiel: die Expression head [2,3,4] gibt den int 2 zurück. Falls versucht wird der Head einer leeren Liste abzufragen wirft die VM eine Exception.
+Der $head$ Operator gibt das erste Element einer Liste zurück. Beispiel: die Expression head [2,3,4] gibt den Wert 2 zurück. Falls versucht wird der Head einer leeren Liste abzufragen wirft die VM eine Exception.
 
 \subsection{Tail}
 \begin{align*}
 tail\;[Type] \rightarrow [Type]
 \end{align*}
-Der $tail$ Operator gibt eine neue Liste \bf ohne \rm den Head einer bestehenden Liste zurück. Beispiel: Die Expression $tail\;[1,2,3,4]$ gibt die Liste [2,3,4] zurück. Die Tail Operation kann auch eine leere Liste zurückgeben. Beispiel: die Expression $tail\;[1]$ gibt die leere Liste [] zurück.
+Der $tail$ Operator gibt eine neue Liste ohne den Head einer bestehenden Liste zurück. Beispiel: Die Expression $tail\;[1,2,3,4]$ gibt die Liste [2,3,4] zurück. Die Tail Operation kann auch eine leere Liste zurückgeben. Beispiel: die Expression $tail\;[1]$ gibt die leere Liste [] zurück.
 
 \subsection{Length}
 \begin{flalign*}
 length\;[Type] \rightarrow Int
 \end{flalign*}
-Der Length Operator gibt die Grösse einer Liste zurück. Beispiel: size [1,2,3,4,5] gibt 5 zurück.
+Der $length$ Operator gibt die Länge einer Liste zurück. Beispiel: $length\;[1,2,3,4,5]$ gibt den Wert 5 zurück.
 
 \newpage
 \section{Vergleich mit Haskell und Scala}
 \subsection{Haskell}
-Die Operationen Head, Tail und Length sind identisch zu Haskell. Einen Unterschied zu Haskell ist die Prezedenz des :: Operator. Bei unserer IML Erweiterung hat der Operator :: die tiefste Priorität und bei Haskell liegt die Priorität zwischen den boolschen, logischen und den arithmetischen Operatoren.
+Die Operatoren $head$, $tail$ und $length$ verhalten sich identisch zu den Haskell Varianten dieser Operatoren. Einen Unterschied zu Haskell ist die Prezedenz des konkatenations Operator. Bei unserer IML Erweiterung hat der Operator :: die tiefste Priorität und bei Haskell liegt die Priorität zwischen den boolschen, logischen und den arithmetischen Operatoren. Dies hat folgende Konsequenzen:
 \newline
 \newline
 Beispiel für Haskell: 
@@ -153,13 +153,14 @@ Beispiel für Haskell:
 (1 > ((3 : True) : [])) // Mit Klammerung um Operator Prezedenz zu zeigen
 \end{lstlisting}
 
-Selbes Beispiel in IML:
+\raggedright
+Gleiches Beispiel in IML:
 
-\begin{lstlisting}[language=iml, caption=Gültige Listen Konkatenation in Scala]
+\begin{lstlisting}[language=iml, caption=Gültige Listen Konkatenation in IML]
 1 > 3 :: true : [] // Keinen Type Error
 ((1 > 3) :: (true :: [])) // Mit Klammerung um Operator Prezedenz zu zeigen
 \end{lstlisting}
-Wir haben uns für diese Prezedenz entschieden, da es unserer Meinung nach natürlicher ist, dass der Konkatenations Operator die tiefste Priorität hat.
+Wir haben uns für diese Prezedenz entschieden, da es unserer Meinung nach natürlicher ist, dass der :: Operator die tiefste Priorität hat.
 
 \subsection{Scala}
 In Scala verhalt sich die Operator Prezedenz für den :: Operator gleich wie bei Haskell, also unterschiedlich zu IML.
@@ -167,7 +168,7 @@ In Scala verhalt sich die Operator Prezedenz für den :: Operator gleich wie bei
 
 \newpage
 \section{Änderungen an der Grammatik}
-Folgende Änderungen wurden an der Grammatik vorgenommen. Die Änderungen wurden mit einem eigens entwickelten Tool getestet und sind $LL(1)$ konform.
+Folgende Änderungen wurden an der Grammatik vorgenommen. Die Änderungen wurden mit einem eigens entwickelten Tool (mehr dazu später) getestet und sind $LL(1)$ konform.
 \subsection{Expression}
 Vorher: 
 \begin{grammar}
@@ -237,6 +238,9 @@ Nachher:
 
 <listLiteral> ::= LBRACKET [<expr> {COMMA <expr>}] RBRACKET
 \end{grammar}
+
+\newpage
+\section{Grammatik auf LL(1) Fehler überprüfen}
 
 \newpage
 \section{Code Beispiele}
