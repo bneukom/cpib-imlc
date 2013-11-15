@@ -32,9 +32,7 @@ trait BNFTransformer {
     val symbols = new ListBuffer[Symbol]
 
     // transform each rhs symbol of the production
-    prod.r.foreach(s => {
-      symbols += transformSymbol(prod.l, s, prods);
-    })
+    prod.r.foreach(s => symbols += transformSymbol(prod.l, s, prods));
 
     // return a list of the new production (while transforming the symbols, new productions might have been added)
     Production(prod.l, symbols.toList) :: prods.toList

@@ -28,7 +28,8 @@ trait LL1 {
   }
 
   def nullable(nt: NT, prods: List[Production], visited: ListBuffer[NT]): Boolean = {
-    if (visited.contains(nt)) return false;
+    // if has already visited check if is in cache otherwise return false (possible endless loop)
+    if (visited.contains(nt)) return nullables.find(n => n.s == nt.s).isDefined;
 
     visited += nt;
 

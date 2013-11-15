@@ -1,17 +1,17 @@
 program ::=
-			PROGRAM IDENT progParamList
-			[GLOBAL cpsDecl] DO cpsCmd ENDPROGRAM;
+   PROGRAM IDENT progParamList
+   [GLOBAL cpsDecl] DO cpsCmd ENDPROGRAM;
 decl ::= stoDecl
-		| funDecl
-		| procDecl;
+  | funDecl
+  | procDecl;
 stoDecl ::= [CHANGEMODE] typedIdent;
 funDecl ::= FUN IDENT paramList
-			RETURNS stoDecl
-			[GLOBAL globImps]
-			[LOCAL cpsStoDecl] DO cpsCmd ENDFUN;
+   RETURNS stoDecl
+   [GLOBAL globImps]
+   [LOCAL cpsStoDecl] DO cpsCmd ENDFUN;
 procDecl ::= PROC IDENT paramList
-		[GLOBAL globImps]
-		[LOCAL cpsStoDecl] DO cpsCmd ENDPROC;
+  [GLOBAL globImps]
+  [LOCAL cpsStoDecl] DO cpsCmd ENDPROC;
 globImps ::= globImp {COMMA globImp};
 globImp ::= [FLOWMODE] [CHANGEMODE] IDENT;
 cpsDecl ::= decl {SEMICOLON decl};
@@ -26,12 +26,12 @@ type ::=  atomType | LBRACKET type RBRACKET;
 atomType ::= INT | BOOL;
 
 cmd ::= SKIP
-	| CALL expr BECOMES expr
-	| IF expr THEN cpsCmd ELSE cpsCmd ENDIF
-	| WHILE expr DO cpsCmd ENDWHILE
-	| IDENT exprList [globInits]
-	| DEBUGIN expr
-	| DEBUGOUT expr;
+ | CALL expr BECOMES expr
+ | IF expr THEN cpsCmd ELSE cpsCmd ENDIF
+ | WHILE expr DO cpsCmd ENDWHILE
+ | IDENT exprList [globInits]
+ | DEBUGIN expr
+ | DEBUGOUT expr;
 cpsCmd ::= cmd {SEMICOLON cmd};
 globInits ::= INIT idents;
 idents ::= IDENT {COMMA IDENT};
@@ -42,9 +42,9 @@ term1 ::= term2 [RELOPR term2];
 term2 ::= term3 {ADDOPR term3};
 term3 ::= factor {MULTOPR factor};
 factor ::= literal
-		| IDENT [INIT | exprList]
-		| monadicOpr factor
-		| LPAREN expr RPAREN;
+  | IDENT [INIT | exprList]
+  | monadicOpr factor
+  | LPAREN expr RPAREN;
 exprList ::= LPAREN [expr {COMMA expr}] RPAREN;
 monadicOpr ::= NOT | ADDOPR | HEAD | TAIL | SIZE;
 

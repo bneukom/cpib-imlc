@@ -4,7 +4,7 @@ import scala.util.parsing.combinator.RegexParsers
 import ch.fhnw.parsetable.BNFGrammar._
 
 trait EBNFParsers extends RegexParsers {
-  def grammar: Parser[Grammar] = repsep(production, ";") ^^ { case prods => Grammar(prods) }
+  def grammar: Parser[Grammar] = positioned(repsep(production, ";") ^^ { case prods => Grammar(prods) })
   def production: Parser[Production] = positioned(nonTerminal ~ "::=" ~ term0 ^^ { case nt ~ "::=" ~ s => Production(nt, s) })
   def terminal: Parser[T] = positioned("[A-Z]+".r.withFailureMessage("terminal symbol expected") ^^ { case t => T(t) })
   def nonTerminal: Parser[NT] = positioned("[a-z][a-zA-Z0-9]*".r.withFailureMessage("non terminal symbol expected") ^^ { case nt => NT(nt) })
