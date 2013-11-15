@@ -1,0 +1,261 @@
+\documentclass[a4paper,notitlepage,oneside]{scrartcl}
+\title{Zwischenbericht Compilerbau Gruppe 7 Listen}
+\author{Christof Weibel \and Benjamin Neukom}
+\date{13. November 2013 Version 0.1}
+\usepackage{listings}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{txfonts} % ?
+\usepackage{color}
+\usepackage{mdwlist} % Für Listen mit * - kompakter
+\usepackage{syntax}
+\usepackage[T1]{fontenc} % bessere tilde und ^ in listintgs
+\usepackage{needspace} %Zusammenhängende Text sequenzen definieren
+
+\usepackage[utf8]{inputenc}
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+ 
+% "define" Scala
+\lstdefinelanguage{scala}{
+  morekeywords={abstract,case,catch,class,def,%
+    do,else,extends,false,final,finally,%
+    for,if,implicit,import,match,mixin,%
+    new,null,object,override,package,%
+    private,protected,requires,return,sealed,%
+    super,this,throw,trait,true,try,%
+    type,val,var,while,with,yield},
+  otherkeywords={=>,<-,<\%,<:,>:,\#,@},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[n]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]"""
+}
+
+\lstdefinelanguage{haskell}{
+  morekeywords={True, False},
+  otherkeywords={=>,<-,<\%,<:,>:,\#,@},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[n]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]"""
+}
+
+\lstdefinelanguage{iml}{
+  morekeywords={program, endprogram, global, fun, endfun, returns,
+    do,else,false, true, for,if,val,var,while,head,tail,length, !, ?},
+  otherkeywords={=>,<-,<\%,<:,>:,\#,@},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[n]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[b]"""
+}
+
+% Default settings for code listings
+\lstset{frame=tb,
+  language=scala,
+  aboveskip=3mm,
+  belowskip=3mm,
+  showstringspaces=false,
+  columns=flexible,
+  basicstyle={\small\ttfamily},
+  numbers=none,
+  numberstyle=\tiny\color{gray},
+  keywordstyle=\color{blue},
+  commentstyle=\color{dkgreen},
+  stringstyle=\color{mauve},
+  frame=single,
+  breaklines=true,
+  breakatwhitespace=true
+  tabsize=2,
+  captionpos=b
+}
+
+\renewcommand{\syntleft}{\normalfont\itshape}
+\renewcommand{\syntright}{}
+
+\setlength{\grammarparsep}{0pt} % increase separation between rules
+\setlength{\grammarindent}{16em} % increase separation between LHS/RHS 
+\renewcommand{\grammarlabel}[2]{\hspace{10 em}{#1}\hfill#2}
+
+\newcommand{\labracket}{[}
+\newcommand{\rabracket}{]}
+\newcommand{\inlinecode}[1]{\lstinline|#1|}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Dieses  Dokument beschreibt, wie die Sprache IML um Listen erweitert wird und welche Änderungen dazu am Compiler und der Virtual Machine gemacht werden. Die Spracherweiterung wird mit anderen Sprachen wie Scala oder Haskell verglichen und die Designentscheide werden erläutert.
+\end{abstract}
+
+
+\section{Listen als Spracherweiterung}
+Listen für IML sind wie folgt definiert
+
+\begin{enumerate}
+  \item Stores vom Typ Liste können mit Brackets definiert werden. Beispiel: $var$ $l:[int]$ ist ein Store vom Typ Liste von ints.
+    
+  \item Listen sind geordnete Ansammlungen von Objekten mit dem gleichen Datentyp. Beispiel: $[1,2,3]$ ist eine Liste vom Typ $int$ mit den Werten 1, 2 und 3. Oder mit Verschachtelung $[[true, false], [true]]$ ist eine Liste vom Typ Liste von bools mit den Werten $[true,false]$ und $[true]$.
+
+  \item Der Typ einer Liste ist definiert durch das erste Element (falls das Element eine Liste ist: erste nicht leere) der Liste. Beispiel:  $[[1,2,3],[3,4,5]]$ ist eine Liste vom Typ Liste von $int$s oder $[[], [true]]$ ist vom Typ Liste von bools.
+
+  \item Die leere Liste $[]$ ist vom Typ $Any$ (welcher in IML selber nicht verwendet werden kann). Der Typ $Any$ ist kompatibel mit allen anderen Typen. Beispiel: für die Deklaration des Stores $var l:[[int]]$ ist $l := []$ so wie auch $l := [[]]$ eine valide Zuweisung.
+
+  \item Listen sind immutable, d.h. die Werte einer Liste können nicht verändert werden. Es können nur mit den operationen $::$ (concatenation) und $tail$ neue Listen konstruiert werden,
+\end{enumerate} 
+
+
+\section{Operationen auf Listen}
+\subsection{Konkatenation}
+\begin{align*}
+Type :: [Type] \rightarrow [Type]
+\end{align*}
+Der $::$ Operator erstellt eine neue Liste mit dem Operand auf der Linken seite als Head und dem Operand der rechten Seite als Tail. Beispiel: die Expression $1 :: [2,3,4]$ gibt die Liste $[1,2,3,4]$ zurück.
+
+\subsection{Head}
+\begin{align*}
+head\;[Type] \rightarrow Type
+\end{align*}
+Der $head$ Operator gibt das erste Element einer Liste zurück. Beispiel: die Expression head [2,3,4] gibt den int 2 zurück. Falls versucht wird der Head einer leeren Liste abzufragen wirft die VM eine Exception.
+
+\subsection{Tail}
+\begin{align*}
+tail\;[Type] \rightarrow [Type]
+\end{align*}
+Der $tail$ Operator gibt eine neue Liste \bf ohne \rm den Head einer bestehenden Liste zurück. Beispiel: Die Expression $tail\;[1,2,3,4]$ gibt die Liste [2,3,4] zurück. Die Tail Operation kann auch eine leere Liste zurückgeben. Beispiel: die Expression $tail\;[1]$ gibt die leere Liste [] zurück.
+
+\subsection{Length}
+\begin{flalign*}
+length\;[Type] \rightarrow Int
+\end{flalign*}
+Der Length Operator gibt die Grösse einer Liste zurück. Beispiel: size [1,2,3,4,5] gibt 5 zurück.
+
+\newpage
+\section{Vergleich mit Haskell und Scala}
+\subsection{Haskell}
+Die Operationen Head, Tail und Length sind identisch zu Haskell. Einen Unterschied zu Haskell ist die Prezedenz des :: Operator. Bei unserer IML Erweiterung hat der Operator :: die tiefste Priorität und bei Haskell liegt die Priorität zwischen den boolschen, logischen und den arithmetischen Operatoren.
+\newline
+\newline
+Beispiel für Haskell: 
+
+\begin{lstlisting}[language=haskell, caption=Ungültige Listen Konkatenation in Haskell]
+1 > 3 : True : [] // Type Error
+(1 > ((3 : True) : [])) // Mit Klammerung um Operator Prezedenz zu zeigen
+\end{lstlisting}
+
+Selbes Beispiel in IML:
+
+\begin{lstlisting}[language=iml, caption=Gültige Listen Konkatenation in Scala]
+1 > 3 :: true : [] // Keinen Type Error
+((1 > 3) :: (true :: [])) // Mit Klammerung um Operator Prezedenz zu zeigen
+\end{lstlisting}
+Wir haben uns für diese Prezedenz entschieden, da es unserer Meinung nach natürlicher ist, dass der Konkatenations Operator die tiefste Priorität hat.
+
+\subsection{Scala}
+In Scala verhalt sich die Operator Prezedenz für den :: Operator gleich wie bei Haskell, also unterschiedlich zu IML.
+
+
+\newpage
+\section{Änderungen an der Grammatik}
+Folgende Änderungen wurden an der Grammatik vorgenommen. Die Änderungen wurden mit einem eigens entwickelten Tool getestet und sind $LL(1)$ konform.
+\subsection{Expression}
+Vorher: 
+\begin{grammar}
+<expr> ::= <term1> \{BOOLOPR term1\}
+
+<term1> ::= <term2> [RELOPR term2]
+
+<term2> ::= <term3> \{ADDOPR term3\}
+
+<term3> ::= <factor> \{MULTOPR factor\}
+
+<factor> ::= <literal>
+		\alt IDENT [INIT | <exprList>]
+		\alt monadicOpr <factor>
+		\alt LPAREN <expr> RPAREN;
+		
+<exprList> ::= LPAREN [<expr> \{COMMA <expr>\}] RPAREN
+
+<monadicOpr> ::= NOT | ADDOPR
+\end{grammar}
+Nachher:
+\begin{grammar}
+<expr> ::= <term0> \{CONCATOPR term0\}
+
+<term0> ::= <term1> \{BOOLOPR term1\}
+
+<term1> ::= <term2> [RELOPR term2]
+
+<term2> ::= <term3> \{ADDOPR term3\}
+
+<term3> ::= <factor> \{MULTOPR factor\}
+
+<factor> ::= <literal>
+		\alt IDENT [INIT | <exprList>]
+		\alt monadicOpr <factor>
+		\alt LPAREN <expr> RPAREN;
+		
+<exprList> ::= LPAREN [<expr> \{COMMA <expr>\}] RPAREN
+
+<monadicOpr> ::= NOT | ADDOPR | HEAD | TAIL | SIZE
+
+\end{grammar}
+
+\newpage
+
+
+\subsection{Type}
+Vorher:
+\begin{grammar}
+<atomType> ::= INT | BOOL
+\end{grammar}
+Nachher:
+\begin{grammar}
+<type> ::=  <atomType> | LBRACKET <type> RBRACKET
+
+<atomType> ::= INT | BOOL
+\end{grammar}
+
+\subsection{Literal}
+Vorher:
+\begin{grammar}
+<literal> ::= INTLITERAL | BOOLLITERAL
+\end{grammar}
+Nachher:
+\begin{grammar}
+<literal> ::= INTLITERAL | BOOLLITERAL | <listLiteral>
+
+<listLiteral> ::= LBRACKET [<expr> {COMMA <expr>}] RBRACKET
+\end{grammar}
+
+\newpage
+\section{Code Beispiele}
+
+\newpage
+\section{Quellen}
+Internet:\\
+\begin{tabular}{l l}
+Wikipedia & en.wikipedia.org \\
+Haskell Listen  & http://andres-loeh.de/haskell/4.pdf \\
+Haskell Language Specification & www.haskell.org/onlinereport/ \\
+Scala & www.scala.org
+\end{tabular} \\
+Bücher: \\
+\begin{tabular}{l l}
+Progranmming in Scala & Odersky et. al. \\
+Grundlagen und Techniken des Compilerbaus & Niklaus Wirth \\
+\end{tabular}
+
+\end{document}
+
+
