@@ -1,0 +1,42 @@
+program listSum()
+global
+fun sum(in copy l:[int]) returns var r:int
+do
+	if size l == 0 do
+		r init := 0
+	else
+		r := head l + sum(tail tail tail l) // init should be allowed (and must actually be there)
+	endif
+endfun;
+fun isPrime(in copy v:int) returns var b:bool
+do
+	b init := true
+endfun;
+
+var sum:int;
+var primes:[int]
+do
+	primes init := [x | x from 2 to 100 where isPrime(x)];
+ 	primes := [x | x from 2 to 100 where isPrime(x)];
+  	primes := [x | x from 100 to 0 where x mod 2 == 0];
+  	primes := 3 :: []
+endprogram
+
+/*
+	// AST translated into something like this
+	var $x1:int;
+	var $$l1:[int];
+	$x1 init := 2;
+	$$l1 init := []
+	
+	while $x1 < 100 do
+		if isPrime(x)
+			l1 := $x1 :: l1;
+		else 
+			skip;
+		endif;
+		$x1 := $x1 + 1 // oder $x1 := $x1 - 1 falls end > start
+	endwhile
+	
+	primes init := $$l1;
+*/

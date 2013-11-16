@@ -83,7 +83,7 @@ trait SemanticAnalysis {
       case MinusOpr | PlusOpr => {
         if (!returnType(rhs, scope).matches(IntType)) throw TypeMismatchError(rhs, IntType, rhsType)
       }
-      case HeadOpr | TailOpr | SizeOpr => {
+      case HeadOpr | TailOpr | LengthOpr => {
         // TODO minor error: any not always correct here (any "only" matches int|bool but here a list would also be possible)
         rhsType match { case ListType(x) => {} case invalid => throw TypeMismatchError(rhs, ListType(Any), rhsType) }
       }
@@ -164,7 +164,7 @@ trait SemanticAnalysis {
         }
       }
       case TailOpr => returnType(rhs, scope);
-      case SizeOpr => IntType
+      case LengthOpr => IntType
     }
   }
 

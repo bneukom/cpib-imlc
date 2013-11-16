@@ -1,0 +1,41 @@
+program listReverse()
+global
+// would be easier with ++ operator
+// reverses the given list and returns a new one
+fun reverse(in copy l:[int]) returns var r:[int]
+do
+	if length l == 0 do
+		r init := []
+	else
+		r := last(l) :: reverse(initial(l)) 
+	endif
+endfun;
+
+// init for haskell (list without last)
+fun initial(in copy l:[int]) returns var  r:[int]
+do
+	if length l == 1 do
+		r init := []
+	else
+		r := head l :: initial(tail l)
+	endif
+endfun;
+
+// returns last element
+fun last(in copy l:[int]) returns var r:int
+local
+	var counter:int
+do
+	if length l == 1 do
+		r init := head l
+	else
+		r := last(tail l)
+	endif
+endfun;
+
+var l:[int];
+var r:[int]
+do
+	l init := [1,2,3,4,5,6,7,8];
+	r init := reverse(l)
+endprogram

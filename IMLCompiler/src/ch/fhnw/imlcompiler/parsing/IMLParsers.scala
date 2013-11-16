@@ -33,7 +33,7 @@ trait IMLParsers extends RegexParsers {
   def boolOpr: Parser[BoolOpr] = positioned("&&" ^^^ { Cand } | "||" ^^^ { Cor })
   def relOpr: Parser[RelOpr] = positioned("==" ^^^ { EQ } | "/=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT })
   def addOpr: Parser[AddOpr] = positioned("-" ^^^ { MinusOpr } | "+" ^^^ { PlusOpr })
-  def listOpr: Parser[MonadicListOpr] = positioned("head" ^^^ { HeadOpr } | "tail" ^^^ { TailOpr } | "size" ^^^ { SizeOpr })
+  def listOpr: Parser[MonadicListOpr] = positioned("head" ^^^ { HeadOpr } | "tail" ^^^ { TailOpr } | "length" ^^^ { LengthOpr })
   def concatOpr: Parser[DyadicListOpr] = positioned("::" ^^^ { ConcatOpr })
 
   def ident: Parser[Ident] = positioned(raw"[A-Za-z]+[A-Za-z0-9]*".r.withFilter(!AST.keywords.contains(_)).withFailureMessage("identifier expected") ^^ { x => Ident(x.toString()) })

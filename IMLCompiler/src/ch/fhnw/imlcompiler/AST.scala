@@ -6,7 +6,7 @@ import sun.org.mozilla.javascript.internal.ast.AstNode
 
 object AST {
 
-  val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init", "inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip", "then", "true", "var", "while", "head", "tail", "size")
+  val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init", "inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip", "then", "true", "var", "while", "head", "tail", "length")
 
   class ASTNode extends Positional
 
@@ -139,7 +139,7 @@ object AST {
   abstract sealed class MonadicListOpr extends Opr with MonadicOpr
   case object HeadOpr extends MonadicListOpr { override def toString() = "head" }
   case object TailOpr extends MonadicListOpr { override def toString() = "tail" }
-  case object SizeOpr extends MonadicListOpr { override def toString() = "size" }
+  case object LengthOpr extends MonadicListOpr { override def toString() = "length" }
 
   abstract sealed class DyadicListOpr extends Opr with DyadicOpr
   case object ConcatOpr extends DyadicListOpr { override def toString() = "::" }
