@@ -152,7 +152,6 @@ trait LL1 {
     new ParseTable(terminals, nonTerminals, table)
   }
 
-  // TODO use List[Production]
   private def fillTable(nonTerminals: List[NT], terminals: List[T], table: Array[Array[List[Production]]], t: T, nt: NT, p: Production): Unit = {
     val nonTerminalIndex = nonTerminals.indexOf(nt)
     val terminalIndex = terminals.indexOf(t);

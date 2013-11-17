@@ -95,7 +95,7 @@
 \maketitle
 
 \begin{abstract}
-Dieses  Dokument beschreibt, wie die Sprache IML um Listen erweitert wird und welche Änderungen dazu am Compiler und der Virtual Machine gemacht werden. Die Spracherweiterung wird mit den Sprachen Scala und Haskell verglichen und die Designentscheide werden erläutert.
+Dieses  Dokument beschreibt, wie die Sprache IML um Listen erweitert wird und welche Änderungen hierfür am Compiler und an der Virtual Machine gemacht werden müssen. Die Spracherweiterung wird mit den Sprachen Scala und Haskell verglichen und die Designentscheide werden erläutert.
 \end{abstract}
 
 
@@ -104,7 +104,7 @@ Listen für IML sind wie folgt definiert
 
 \begin{enumerate}
 
-  \item Listen sind geordnete Ansammlungen von Objekten mit dem gleichen Datentyp $T$. Listen bestehen aus einem Head, vom Typ $T$ und einem Tail, einer Liste vom Typ $T$. Beispiel: $[1,2,3]$ ist eine Liste vom Typ $int$ mit den Werten 1, 2 und 3 (Head ist 1 und Tail ist $[2, 3]$). Oder mit Verschachtelung $[[true, false], [true]]$ ist eine Liste vom Typ Liste von bools mit den Werten $[true,false]$ und $[true]$.
+  \item Listen sind geordnete Ansammlungen von Objekten mit dem gleichen Datentyp $T$. Listen bestehen aus einem Head vom Typ $T$ und einem Tail einer Liste vom Typ $T$. Beispiel: $[1,2,3]$ ist eine Liste vom Typ $int$ mit den Werten 1, 2 und 3 (Head ist 1 und Tail ist $[2, 3]$). Oder mit Verschachtelung $[[true, false], [true]]$ ist eine Liste vom Typ Liste von bools mit den Werten $[true,false]$ und $[true]$.
 
   \item Stores vom Typ Liste können mit Brackets definiert werden. Beispiel: $var$ $l:[int]$ ist ein Store vom Typ Liste von ints.
     
@@ -133,7 +133,7 @@ Der $head$ Operator gibt den Head einer Liste zurück. Beispiel: die Expression 
 \begin{align*}
 tail\;[Type] \rightarrow [Type]
 \end{align*}
-Der $tail$ Operator gibt den Tail einer Liste zurück. Beispiel: Die Expression $tail\;[1,2,3,4]$ gibt die Liste [2,3,4] zurück. Die Tail Operation kann auch eine leere Liste zurückgeben. Beispiel: die Expression $tail\;[1]$ gibt die leere Liste [] zurück.
+Der $tail$ Operator gibt den Tail einer Liste zurück. Beispiel: die Expression $tail\;[1,2,3,4]$ gibt die Liste [2,3,4] zurück. Die Tail Operation kann auch eine leere Liste zurückgeben. Beispiel: die Expression $tail\;[1]$ gibt die leere Liste [] zurück.
 
 \subsection{Length}
 \begin{flalign*}
@@ -162,10 +162,10 @@ Gleiches Beispiel in IML:
 ((1 > 3) :: (true :: [])) // Mit Klammerung um Operator Prezedenz zu zeigen
 \end{lstlisting}
 Wir haben uns für diese Prezedenz entschieden, da es unserer Meinung nach natürlicher ist, dass der :: Operator die tiefste Priorität hat.
-Ausserdem haben wir noch kein Beispiel gefunden, wo die Operator Prezedenz wie sie in Haskell implementiert ist, einen Vorteil gegenüber unserer Implementation hat.
+Ausserdem haben wir noch kein Beispiel gefunden, wo die Operator Prezedenz wie sie in Haskell implementiert ist, einen Vorteil gegenüber unserer Implementation bietet.
 
 \subsection{Scala}
-In Scala verhalt sich die Operator Prezedenz des :: Operator gleich wie bei Haskell, also unterschiedlich zu IML.
+In Scala verhält sich die Operator Prezedenz des :: Operator gleich wie bei Haskell, also unterschiedlich zu IML.
 
 
 \newpage
