@@ -46,8 +46,9 @@ factor ::= literal
   | monadicOpr factor
   | LPAREN expr RPAREN;
 exprList ::= LPAREN [expr {COMMA expr}] RPAREN;
-monadicOpr ::= NOT | ADDOPR | HEAD | TAIL | SIZE;
+monadicOpr ::= NOT | ADDOPR | HEAD | TAIL | SIZE | listExpr;
 
+listExpr ::= LCURL expr PIPE IDENT FROM expr TO expr WHERE expr RCURL;
 
 literal ::= INTLITERAL | BOOLLITERAL | listLiteral;
 listLiteral ::= LBRACKET [expr {COMMA expr}] RBRACKET

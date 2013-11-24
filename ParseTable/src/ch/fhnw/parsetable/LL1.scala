@@ -4,11 +4,12 @@ import scala.collection.immutable.Set
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.HashSet
 import scala.collection.mutable.ListBuffer
-
 import ch.fhnw.parsetable.BNFGrammar.NT
 import ch.fhnw.parsetable.BNFGrammar.Production
 import ch.fhnw.parsetable.BNFGrammar.Symbol
 import ch.fhnw.parsetable.BNFGrammar.T
+import ch.fhnw.parsetable.BNFGrammar._
+import scala.collection.immutable.List
 
 // http://pages.cpsc.ucalgary.ca/~robin/class/411/LL1.2.html
 trait LL1 {
@@ -17,7 +18,6 @@ trait LL1 {
   val nullables = new ListBuffer[NT];
   val followCache = new HashMap[NT, Set[T]];
 
-  // possible endless recursion x ::= y; y ::= x
   def nullable(sl: List[Symbol], prods: List[Production], visited: ListBuffer[NT]): Boolean = {
     sl.forall(s => s match {
       case T("") => true
@@ -28,9 +28,9 @@ trait LL1 {
   }
 
   def nullable(nt: NT, prods: List[Production], visited: ListBuffer[NT]): Boolean = {
-    // if has already visited check if is in cache otherwise return false (possible endless loop)
-    if (visited.contains(nt)) return nullables.find(n => n.s == nt.s).isDefined;
 
+    // if has already been visited check if is in cache otherwise return false (prohibit possible endless loop)
+    if (visited.contains(nt)) return nullables.find(n => n.s == nt.s).isDefined;
     visited += nt;
 
     if (nullables.find(n => n.s == nt.s).isDefined) return true;
@@ -88,13 +88,15 @@ trait LL1 {
     val follows = new HashSet[T]
     if (nt.s == startSymbol) follows += T("$")
 
+    val g = Grammar(List(Production(NT("a"), List(T("b")))));
+
     prods.foreach(prod => {
       val headTail = headTailZip(prod.r);
       headTail.foreach(t => {
         if (t._1 == nt) {
           if (nullable(t._2, prods, ListBuffer[NT]()) && nt != prod.l) {
             val f = first(t._2, prods, ListBuffer[Symbol]())
-            val fol = follow(prod.l, prods, startSymbol, visited, false); // no NOT cache due to possible invalid results when in circles
+            val fol = follow(prod.l, prods, startSymbol, visited, false); // do NOT cache due to possible invalid results when in circles
             follows ++= (f ++ fol)
           } else {
             follows ++= first(t._2, prods, ListBuffer[Symbol]());

@@ -1,7 +1,7 @@
 program listContains()
 global
 
-fun contains(in copy l:[int], in copy i) returns var r:boolean
+fun contains(in copy l:[int], in copy i:int) returns var r:bool
 do
 	if length l == 0 do
 		r init := false
@@ -17,5 +17,5 @@ var c:bool
 do
 	l init := [1,2,3,4,5,6,7,8];
 	i init := 6;
-	c init := contains(i)
+	c init := contains(l, i)
 endprogram

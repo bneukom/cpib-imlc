@@ -15,7 +15,6 @@ object BNFGrammar extends WrapAsJava {
   case class Opt(o: List[Symbol]) extends Symbol
   case class Alt(a: List[List[Symbol]]) extends Symbol
 
-  // TODO check undefined not via this but in a seperate pass
   def checkGrammar(g: Grammar, root: Production): Map[NT, (Boolean, Boolean)] = {
     val undefined = ListBuffer[NT]();
     val reachableMap = new HashMap[NT, Boolean]
@@ -55,41 +54,6 @@ object BNFGrammar extends WrapAsJava {
     })
   }
 
-  // TODO this is not quite right, rather try to find a path from the root to each production (to find out if unreachable)
-  def checkGrammar(g: Grammar): HashMap[NT, (Boolean, Boolean)] = {
-    // check for possible unreachable or undefined non terminals
-    val unreachable = HashMap[NT, (Boolean, Boolean)]()
-    g.prods.foreach(p => {
-      val t = unreachable.get(p.l);
-      t match {
-        case None => unreachable.put(p.l, (true, false))
-        case Some(s) => unreachable.put(p.l, (true, s._2))
-      }
-      checkSymbol(p.r, unreachable)
-    })
-
-    unreachable;
-  }
-
-  def checkSymbol(ls: List[Symbol], unreachable: HashMap[NT, (Boolean, Boolean)]): Unit = {
-    ls.foreach(s => {
-      s match {
-        case nt: NT => {
-          val t = unreachable.get(nt);
-          t match {
-            case None => unreachable.put(nt, (false, true))
-            case Some(s) => unreachable.put(nt, (s._1, true))
-          }
-        }
-        case t: T =>
-        case opt: Opt => checkSymbol(opt.o, unreachable)
-        case rep: Rep => checkSymbol(rep.r, unreachable)
-        case alt: Alt => alt.a.foreach(ls2 => checkSymbol(ls2, unreachable));
-      }
-    })
-
-  }
-
   def printGrammar(g: Grammar) = g.prods.foreach(prod => printProduction(prod))
 
   def printProduction(p: Production) = {
@@ -105,7 +69,7 @@ object BNFGrammar extends WrapAsJava {
     s match {
       case nt: NT => print(nt.s)
       case nt: T => print(nt.s)
-      case _ => print("ERROR");
+      case _ => print("ERROR"); // TODO implement printing for EBNF grammars
     }
   }
 

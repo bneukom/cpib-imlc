@@ -2,7 +2,7 @@ program listSum()
 global
 fun sum(in copy l:[int]) returns var r:int
 do
-	if size l == 0 do
+	if length l == 0 do
 		r init := 0
 	else
 		r := head l + sum(tail tail tail l) // init should be allowed (and must actually be there)
@@ -14,12 +14,11 @@ do
 endfun;
 
 var sum:int;
-var primes:[int]
+var primes:[int];
+var squaredPrimes:[int]
 do
-	primes init := [x | x from 2 to 100 where isPrime(x)];
- 	primes := [x | x from 2 to 100 where isPrime(x)];
-  	primes := [x | x from 100 to 0 where x mod 2 == 0];
-  	primes := 3 :: []
+	primes init := {x  | x from 2 to 1000 where isPrime(x)};
+ 	squaredPrimes init := {x * x | x from 2 to 1000 where isPrime(x)}
 endprogram
 
 /*

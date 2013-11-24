@@ -20,7 +20,7 @@ object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with 
     //    val fold2 = l2.take(l2.size - 1).foldRight(l2.last.toString)((a: Int, b: String) => "(" + a + ", " + b + ")")
     //    println("DONE")
 
-    val file = scala.io.Source.fromFile("programs/listreverse.iml")
+    val file = scala.io.Source.fromFile("programs/listcomprehensions.iml")
     val imlcode = file.mkString
     file.close()
 

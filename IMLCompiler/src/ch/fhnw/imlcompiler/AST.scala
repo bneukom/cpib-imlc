@@ -59,7 +59,7 @@ object AST {
   case class FunCallExpr(i: Ident, e: TupleExpr) extends Expr;
   case class StoreExpr(i: Ident, isInitialization: Boolean) extends Expr;
   case class LiteralExpr(l: Literal) extends Expr;
-  case class ListExpr(ret:Expr, i:Ident, from:IntLiteral, to:IntLiteral, where:Expr) extends Expr;
+  case class ListExpr(ret:Expr, i:Ident, from:Expr, to:Expr, where:Expr) extends Expr;
   
   abstract sealed class Factor extends ASTNode;
   abstract sealed class Literal extends Factor;
@@ -150,6 +150,7 @@ object AST {
 
     println(l1 + " matches " + l2 + ": " + l1.matches(l2))
     println(l2 + " matches " + l1 + ": " + l2.matches(l1))
-
+    
+    
   }
 }

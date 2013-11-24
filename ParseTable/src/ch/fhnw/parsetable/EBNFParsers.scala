@@ -9,7 +9,7 @@ trait EBNFParsers extends RegexParsers {
   def terminal: Parser[T] = positioned("[A-Z]+".r.withFailureMessage("terminal symbol expected") ^^ { case t => T(t) })
   def nonTerminal: Parser[NT] = positioned("[a-z][a-zA-Z0-9]*".r.withFailureMessage("non terminal symbol expected") ^^ { case nt => NT(nt) })
 
-  def term0: Parser[List[Symbol]] = repsep(rep(term1), "|") ^^ { case x => if (x.size > 1) List(Alt(x)) else x.head }
+  def term0: Parser[List[Symbol]] = repsep(rep(positioned(term1)), "|") ^^ { case x => if (x.size > 1) List(Alt(x)) else x.head }
   def term1: Parser[Symbol] = positioned(repTerm | optTerm | symbol)
   def repTerm: Parser[Symbol] = positioned("{" ~ term0 ~ "}" ^^ { case "{" ~ rep ~ "}" => Rep(rep) })
   def optTerm: Parser[Symbol] = positioned("[" ~ term0 ~ "]" ^^ { case "[" ~ rep ~ "]" => Opt(rep) })
@@ -22,5 +22,4 @@ trait EBNFParsers extends RegexParsers {
     }
   }
 
-  
 }

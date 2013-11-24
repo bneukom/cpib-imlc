@@ -4,6 +4,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.EventQueue;
+import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -44,6 +45,7 @@ import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableColumnModel;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 import javax.swing.text.BadLocationException;
@@ -51,6 +53,7 @@ import javax.swing.text.Document;
 import javax.swing.text.Style;
 import javax.swing.text.StyleConstants;
 
+import ch.fhnw.parsetable.BNFGrammar.NT;
 import ch.fhnw.parsetable.BNFGrammar.Production;
 import ch.fhnw.parsetable.BNFGrammar.Symbol;
 import ch.fhnw.parsetable.BNFGrammar.T;
@@ -116,26 +119,35 @@ public class ParseTableFrame extends JFrame {
 		});
 		mnFile.add(mntmOpen);
 
-		JMenuItem mntmExport = new JMenuItem("Export");
+		final JMenuItem mntmExport = new JMenuItem("Export");
 		mntmExport.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
+			public void actionPerformed(final ActionEvent e) {
 				final JFileChooser fc = new JFileChooser();
-				int returnVal = fc.showSaveDialog(ParseTableFrame.this);
+				final int returnVal = fc.showSaveDialog(ParseTableFrame.this);
 				if (returnVal == JFileChooser.APPROVE_OPTION && currentParseTable != null) {
 					String export = "";
 					final List<Production>[][] table = currentParseTable.table2();
+
+					List<T> termminals = currentParseTable.terminals2();
+					String row0 = "";
+					for (T t : termminals) {
+						row0 += (t.s() + ";");
+					}
+					export += (row0 + "\n");
+					
+					List<NT> nonTerminals = currentParseTable.nonTerminals2();
 					for (int y = 0; y < table.length; ++y) {
-						String row = "";
+						String row = "" + nonTerminals.get(y).s();
 						for (int x = 0; x < table[y].length; ++x) {
 							row += (productionsString(table[y][x]) + ";");
 						}
 						export += (row + "\n");
 					}
-					File selectedFile = fc.getSelectedFile();
+					final File selectedFile = fc.getSelectedFile();
 
 					try {
 						Files.write(Paths.get(selectedFile.toURI()), export.getBytes(), StandardOpenOption.CREATE);
-					} catch (IOException e1) {
+					} catch (final IOException e1) {
 						e1.printStackTrace();
 					}
 				}
@@ -188,7 +200,7 @@ public class ParseTableFrame extends JFrame {
 
 				try {
 					currentParseTable = gen.generateParseTable(parseTableTextArea.getText());
-				} catch (Exception exception) {
+				} catch (final Exception exception) {
 					System.err.println(exception.getMessage());
 					parseTable.setModel(new DefaultTableModel());
 					tableScrollPane.setRowHeader(null);
@@ -203,9 +215,9 @@ public class ParseTableFrame extends JFrame {
 				final TableColumnModel rowHeaderColumnModel = new DefaultTableColumnModel() {
 					boolean first = true;
 
-					public void addColumn(TableColumn tc) {
+					public void addColumn(final TableColumn tc) {
 						if (first) {
-							tc.setMaxWidth(tc.getPreferredWidth());
+							tc.setMaxWidth(175);
 							super.addColumn(tc);
 							first = false;
 						}
@@ -214,7 +226,7 @@ public class ParseTableFrame extends JFrame {
 
 				final RowHeaderModel rowHeaderModel = new RowHeaderModel(currentParseTable);
 
-				JTable headerColumn = new JTable(rowHeaderModel, rowHeaderColumnModel);
+				final JTable headerColumn = new JTable(rowHeaderModel, rowHeaderColumnModel);
 				headerColumn.createDefaultColumnsFromModel();
 				headerColumn.getTableHeader().setReorderingAllowed(false);
 
@@ -225,7 +237,7 @@ public class ParseTableFrame extends JFrame {
 				headerColumn.setColumnSelectionAllowed(false);
 				headerColumn.setCellSelectionEnabled(false);
 
-				JViewport viewport = new JViewport();
+				final JViewport viewport = new JViewport();
 				viewport.setView(headerColumn);
 				viewport.setPreferredSize(headerColumn.getMaximumSize());
 
@@ -240,14 +252,14 @@ public class ParseTableFrame extends JFrame {
 					parseTable.getColumnModel().getColumn(columnIndex).setCellRenderer(cellRenderer);
 				}
 
-				int columnCount = tableModel.getColumnCount();
-				int rowCount = tableModel.getRowCount();
+				final int columnCount = tableModel.getColumnCount();
+				final int rowCount = tableModel.getRowCount();
 				outer: for (int c = 0; c < columnCount; c++) {
 					for (int r = 0; r < rowCount; r++) {
-						Object valueAt = tableModel.getValueAt(r, c);
+						final Object valueAt = tableModel.getValueAt(r, c);
 						if (valueAt != null) {
 							@SuppressWarnings("unchecked")
-							List<Production> p = (List<Production>) valueAt;
+							final List<Production> p = (List<Production>) valueAt;
 							if (p.size() > 1) {
 								parseTable.changeSelection(r, c, false, false);
 								parseTable.scrollRectToVisible(parseTable.getCellRect(r, c, true));
@@ -270,39 +282,42 @@ public class ParseTableFrame extends JFrame {
 						.addComponent(parseButton).addContainerGap()));
 
 		parseTableTextArea = new JTextArea();
+		parseTableTextArea.setFont(new Font("Consolas", Font.PLAIN, 13));
 		parseTableScrollPane.setViewportView(parseTableTextArea);
 		panel_2.setLayout(gl_panel_2);
 
 		final JScrollPane logScrollPane = new JScrollPane();
 
 		logTextPane = new JTextPane();
+		logTextPane.setFont(new Font("Consolas", Font.PLAIN, 13));
 		logTextPane.setEditable(false);
 		logScrollPane.setViewportView(logTextPane);
 
-		JPopupMenu popupMenu = new JPopupMenu();
+		final JPopupMenu popupMenu = new JPopupMenu();
 		addPopup(logTextPane, popupMenu);
 
-		JMenuItem menuClearLog = new JMenuItem("Clear");
+		final JMenuItem menuClearLog = new JMenuItem("Clear");
 		menuClearLog.addActionListener(new ActionListener() {
-			public void actionPerformed(ActionEvent e) {
+			public void actionPerformed(final ActionEvent e) {
 				logTextPane.setText("");
 			}
 		});
 		popupMenu.add(menuClearLog);
 		errorStyle = logTextPane.addStyle("errorStyle", null);
 
-		JScrollPane errorScrollPane = new JScrollPane();
+		final JScrollPane errorScrollPane = new JScrollPane();
 
 		errorTextPane = new JTextPane();
+		errorTextPane.setFont(new Font("Consolas", Font.PLAIN, 13));
 		errorTextPane.setEditable(false);
 		errorScrollPane.setViewportView(errorTextPane);
 
-		JPopupMenu errorPopupMenu = new JPopupMenu();
+		final JPopupMenu errorPopupMenu = new JPopupMenu();
 		addPopup(errorTextPane, errorPopupMenu);
 
-		JMenuItem menuClearErrors = new JMenuItem("Clear");
+		final JMenuItem menuClearErrors = new JMenuItem("Clear");
 		errorPopupMenu.add(menuClearErrors);
-		GroupLayout gl_logPanel = new GroupLayout(logPanel);
+		final GroupLayout gl_logPanel = new GroupLayout(logPanel);
 		gl_logPanel.setHorizontalGroup(gl_logPanel.createParallelGroup(Alignment.LEADING).addGroup(
 				gl_logPanel.createSequentialGroup().addComponent(logScrollPane, GroupLayout.DEFAULT_SIZE, 572, Short.MAX_VALUE).addGap(5)
 						.addComponent(errorScrollPane, GroupLayout.DEFAULT_SIZE, 577, Short.MAX_VALUE).addGap(1)));
@@ -311,6 +326,33 @@ public class ParseTableFrame extends JFrame {
 		logPanel.setLayout(gl_logPanel);
 		contentPane.setLayout(gl_contentPane);
 		StyleConstants.setForeground(errorStyle, Color.red);
+	}
+
+	private static void packColumn(JTable table, int vColIndex, int margin) {
+		DefaultTableColumnModel colModel = (DefaultTableColumnModel) table.getColumnModel();
+		TableColumn col = colModel.getColumn(vColIndex);
+		int width = 0;
+
+		// Get width of column header
+		TableCellRenderer renderer = col.getHeaderRenderer();
+		if (renderer == null) {
+			renderer = table.getTableHeader().getDefaultRenderer();
+		}
+		java.awt.Component comp = renderer.getTableCellRendererComponent(table, col.getHeaderValue(), false, false, 0, 0);
+		width = comp.getPreferredSize().width;
+
+		// Get maximum width of column data
+		for (int r = 0; r < table.getRowCount(); r++) {
+			renderer = table.getCellRenderer(r, vColIndex);
+			comp = renderer.getTableCellRendererComponent(table, table.getValueAt(r, vColIndex), false, false, r, vColIndex);
+			width = Math.max(width, comp.getPreferredSize().width);
+		}
+
+		// Add margin
+		width += 2 * margin;
+
+		// Set the width
+		col.setPreferredWidth(width);
 	}
 
 	private static String productionsString(final List<Production> productions) {
@@ -334,10 +376,10 @@ public class ParseTableFrame extends JFrame {
 	private void appendToPane(final JTextPane pane, final String text, final Style style) {
 		SwingUtilities.invokeLater(new Runnable() {
 			public void run() {
-				Document doc = pane.getDocument();
+				final Document doc = pane.getDocument();
 				try {
 					doc.insertString(doc.getLength(), text, style);
-				} catch (BadLocationException e) {
+				} catch (final BadLocationException e) {
 					throw new RuntimeException(e);
 				}
 
@@ -347,36 +389,36 @@ public class ParseTableFrame extends JFrame {
 	}
 
 	private void redirectSystemStreams() {
-		OutputStream out = new OutputStream() {
+		final OutputStream out = new OutputStream() {
 			@Override
-			public void write(int b) throws IOException {
+			public void write(final int b) throws IOException {
 				appendToPane(logTextPane, String.valueOf((char) b), null);
 			}
 
 			@Override
-			public void write(byte[] b, int off, int len) throws IOException {
+			public void write(final byte[] b, final int off, final int len) throws IOException {
 				appendToPane(logTextPane, new String(b, off, len), null);
 			}
 
 			@Override
-			public void write(byte[] b) throws IOException {
+			public void write(final byte[] b) throws IOException {
 				write(b, 0, b.length);
 			}
 		};
 
-		OutputStream err = new OutputStream() {
+		final OutputStream err = new OutputStream() {
 			@Override
-			public void write(int b) throws IOException {
+			public void write(final int b) throws IOException {
 				appendToPane(errorTextPane, String.valueOf((char) b), errorStyle);
 			}
 
 			@Override
-			public void write(byte[] b, int off, int len) throws IOException {
+			public void write(final byte[] b, final int off, final int len) throws IOException {
 				appendToPane(errorTextPane, new String(b, off, len), errorStyle);
 			}
 
 			@Override
-			public void write(byte[] b) throws IOException {
+			public void write(final byte[] b) throws IOException {
 				write(b, 0, b.length);
 			}
 		};
@@ -446,10 +488,10 @@ public class ParseTableFrame extends JFrame {
 	private static final class ParseTableCellRenderer extends DefaultTableCellRenderer {
 		@Override
 		@SuppressWarnings("unchecked")
-		public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+		public Component getTableCellRendererComponent(final JTable table, final Object value, final boolean isSelected, final boolean hasFocus, final int row, final int column) {
 			final List<Production> productions = (List<Production>) value;
 			final String stringValue = value != null ? productionsString(productions) : "";
-			Component tableCellRendererComponent = super.getTableCellRendererComponent(table, stringValue, isSelected, hasFocus, row, column);
+			final Component tableCellRendererComponent = super.getTableCellRendererComponent(table, stringValue, isSelected, hasFocus, row, column);
 
 			// test
 			if (productions != null && productions.size() > 1)
@@ -462,21 +504,21 @@ public class ParseTableFrame extends JFrame {
 
 	}
 
-	private static void addPopup(Component component, final JPopupMenu popup) {
+	private static void addPopup(final Component component, final JPopupMenu popup) {
 		component.addMouseListener(new MouseAdapter() {
-			public void mousePressed(MouseEvent e) {
+			public void mousePressed(final MouseEvent e) {
 				if (e.isPopupTrigger()) {
 					showMenu(e);
 				}
 			}
 
-			public void mouseReleased(MouseEvent e) {
+			public void mouseReleased(final MouseEvent e) {
 				if (e.isPopupTrigger()) {
 					showMenu(e);
 				}
 			}
 
-			private void showMenu(MouseEvent e) {
+			private void showMenu(final MouseEvent e) {
 				popup.show(e.getComponent(), e.getX(), e.getY());
 			}
 		});

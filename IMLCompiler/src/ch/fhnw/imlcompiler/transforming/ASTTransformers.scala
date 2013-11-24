@@ -13,9 +13,9 @@ trait ASTTransformers {
   def transform(program: Program, context: Context): Program = {
     return Program(program.params, program.cpsDecl, transformCommands(program.commands, context.globalStoreScope.scope))
   }
-  
-//  def transform(prog:Program): (List[Cmd], List[Decl]) = {
-//  }
+
+  //  def transform(prog:Program): (List[Cmd], List[Decl]) = {
+  //  }
 
   def transformCommands(cmds: List[Cmd], scope: ListBuffer[Store]): List[Cmd] = {
     // TODO insert new commands needed
@@ -35,7 +35,7 @@ trait ASTTransformers {
           newCmds += BecomesCmd(l, r)
         }
       }
-      
+
       // TODO update scope
       // TODO create new commands for this list expr
       // TODO change listExpr to StoreExpr
@@ -45,20 +45,20 @@ trait ASTTransformers {
     newCmds.toList
   }
 
-  // from 2 to 100 we need to start with 100 and go back for correct list order [2,3,4,5,...100]
+  // TODO from 2 to 100 we need to start with 100 and go back for correct list order [2,3,4,5,...100]
   /*
   	var $x1:int;
 	var $$l1:[int];
-	$x1 init := FROM;
+	$x1 init := toExpr;
 	$$l1 init := []
 	
-	while $x1 [< OR >] TO do
+	while $x1 > fromExpr do
 		if WHERE(x)
-			l1 := $x1 :: l1;
+			l1 := $x1 :: l1
 		else 
-			skip;
+			skip
 		endif;
-		$x1 := $x1 [+ OR -] 1 // $x1 := $x1 - 1 falls end > start
+		$x1 := $x1 - 1 //
 	endwhile
 	
 	primes init := $$l1;
@@ -68,14 +68,14 @@ trait ASTTransformers {
     val listIdent = Ident("$$l" + count)
     val counterStoreDecl = StoreDecl(Var, TypedIdent(countIdent, IntType))
     val listStoreDecl = StoreDecl(Var, TypedIdent(listIdent, ListType(IntType)))
-    val countInitCmd = BecomesCmd(StoreExpr(countIdent, true), LiteralExpr(lexpr.from))
+    val countInitCmd = BecomesCmd(StoreExpr(countIdent, true), lexpr.to)
     val listInitCmd = BecomesCmd(StoreExpr(listIdent, true), LiteralExpr(ListLiteral(List())))
 
     val appenderCmd = BecomesCmd(StoreExpr(listIdent, false), DyadicExpr(StoreExpr(countIdent, false), ConcatOpr, StoreExpr(listIdent, false)))
     val whereCmd = IfCmd(lexpr.where, appenderCmd :: Nil, SkipCmd() :: Nil)
-    val incrementer = BecomesCmd(StoreExpr(countIdent, false), DyadicExpr(StoreExpr(listIdent, false), if (lexpr.from.v < lexpr.to.v) PlusOpr else MinusOpr, LiteralExpr(IntLiteral(1))))
+    val incrementer = BecomesCmd(StoreExpr(countIdent, false), DyadicExpr(StoreExpr(listIdent, false), MinusOpr, LiteralExpr(IntLiteral(1))))
 
-    val whileCmd = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), if (lexpr.from.v < lexpr.to.v) LT else GT, LiteralExpr(lexpr.to)), whereCmd :: incrementer :: Nil)
+    val whileCmd = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), GT, lexpr.to), whereCmd :: incrementer :: Nil)
     val resultExpr = StoreExpr(listIdent, false)
 
     return (counterStoreDecl, listStoreDecl, countInitCmd :: listInitCmd :: whileCmd :: Nil, resultExpr)
