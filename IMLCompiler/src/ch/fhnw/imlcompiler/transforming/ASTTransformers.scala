@@ -11,16 +11,20 @@ import scala.collection.mutable.ListBuffer
 trait ASTTransformers {
 
   def transform(program: Program, context: Context): Program = {
-    return Program(program.params, program.cpsDecl, transformCommands(program.commands, context.globalStoreScope.scope))
+    val transformed = transformCommands(program.commands, program.cpsDecl, context.globalStoreScope.scope)
+    return Program(program.params, transformed._1, transformed._2)
   }
 
   //  def transform(prog:Program): (List[Cmd], List[Decl]) = {
   //  }
 
-  def transformCommands(cmds: List[Cmd], scope: ListBuffer[Store]): List[Cmd] = {
+  def transformCommands(cmds: List[Cmd], decls: List[Decl], scope: ListBuffer[Store]): (List[Decl], List[Cmd]) = {
     // TODO insert new commands needed
 
     val newCmds = ListBuffer[Cmd]();
+    val newDecls = ListBuffer[Decl]();
+    
+    newDecls ++= decls;
 
     cmds.foreach(cmd => {
       cmd match {
@@ -42,9 +46,10 @@ trait ASTTransformers {
 
     })
 
-    newCmds.toList
+    (newDecls.toList, newCmds.toList)
   }
 
+  // TODO what about nested list comprehensions?
   // TODO from 2 to 100 we need to start with 100 and go back for correct list order [2,3,4,5,...100]
   /*
   	var $x1:int;
