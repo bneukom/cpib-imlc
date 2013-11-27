@@ -16,20 +16,21 @@ object BNFGrammar extends WrapAsJava {
   case class Alt(a: List[List[Symbol]]) extends Symbol
 
   def checkGrammar(g: Grammar, root: Production): Map[NT, (Boolean, Boolean)] = {
-    val undefined = ListBuffer[NT]();
-    val reachableMap = new HashMap[NT, Boolean]
     val nts = g.prods.tail.collect({ case p => p.l }).distinct
+    val reachableMap = new HashMap[NT, (Boolean, Boolean)]
 
     // check if all nts are reachable from the root production
-    nts.foreach(nt => reachableMap += (nt -> reachable(nt, root.r, g.prods, undefined, ListBuffer())));
+    nts.foreach(nt => reachableMap += (nt -> (reachable(nt, root.r, g.prods, ListBuffer()), productive(nt, root.r, g.prods, ListBuffer()))));
 
-    val result = new HashMap[NT, (Boolean, Boolean)]
-    reachableMap.foreach(nt => result += (nt._1 -> (nt._2, !undefined.find(x => x eq nt._1).isDefined)))
-
-    result.toMap
+    reachableMap.toMap
   }
 
-  def reachable(toFind: NT, ls: List[Symbol], productions: List[Production], undefined: ListBuffer[NT], visited: ListBuffer[List[Symbol]]): Boolean = {
+  // TODO implement
+  def productive(check: NT, ls: List[Symbol], productions: List[Production], visited: ListBuffer[List[Symbol]]): Boolean = {
+    true;
+  }
+
+  def reachable(toFind: NT, ls: List[Symbol], productions: List[Production], visited: ListBuffer[List[Symbol]]): Boolean = {
     if (visited.contains(ls)) return false;
 
     visited += ls;
@@ -41,15 +42,15 @@ object BNFGrammar extends WrapAsJava {
           else {
             val prod = productions.find(f => f.l == nt)
             prod match {
-              case None => undefined += nt; false;
-              case Some(x) => reachable(toFind, x.r, productions, undefined, visited)
+              case None => false
+              case Some(x) => reachable(toFind, x.r, productions, visited)
             }
           }
         }
         case t: T => false
-        case opt: Opt => reachable(toFind, opt.o, productions, undefined, visited)
-        case rep: Rep => reachable(toFind, rep.r, productions, undefined, visited)
-        case alt: Alt => alt.a.exists(ls2 => reachable(toFind, ls2, productions, undefined, visited));
+        case opt: Opt => reachable(toFind, opt.o, productions, visited)
+        case rep: Rep => reachable(toFind, rep.r, productions, visited)
+        case alt: Alt => alt.a.exists(ls2 => reachable(toFind, ls2, productions, visited));
       }
     })
   }

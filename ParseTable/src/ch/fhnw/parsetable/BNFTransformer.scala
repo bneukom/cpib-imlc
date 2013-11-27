@@ -10,8 +10,6 @@ trait BNFTransformer {
 
   val newLhsNonTerminal: MutableList[NT] = new MutableList[NT]
 
-  // TODO remember every T and NT for parse table generating
-
   def transform(ebnf: Grammar): Grammar = {
     Grammar(transformProds(ebnf.prods))
   }

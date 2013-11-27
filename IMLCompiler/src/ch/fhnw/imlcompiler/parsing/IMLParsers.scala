@@ -49,7 +49,6 @@ trait IMLParsers extends RegexParsers {
   def monadicAddExpr: Parser[MonadicExpr] = positioned(addOpr ~ factor ^^ { case op ~ exp => MonadicExpr(exp, op) })
   def monadicNotExpr: Parser[MonadicExpr] = positioned("not" ~ factor ^^ { case "not" ~ exp => MonadicExpr(exp, Not) })
   def monadicListExpr: Parser[MonadicExpr] = positioned(listOpr ~ factor ^^ { case l ~ f => MonadicExpr(f, l) })
-  // TODO with intLiterals negative values are not possible!
   def listExpr: Parser[ListExpr] = positioned("{" ~ expr ~ "|" ~ ident ~ "from" ~ expr ~ "to" ~ expr ~ "where" ~ expr ~ "}" ^^ { case "{" ~ r ~ "|" ~ i ~ "from" ~ from ~ "to" ~ to ~ "where" ~ where ~ "}" => ListExpr(r, i, from, to, where) })
 
   def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | listExpr | "(" ~> expr <~ ")")

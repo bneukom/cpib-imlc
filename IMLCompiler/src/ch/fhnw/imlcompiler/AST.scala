@@ -19,8 +19,8 @@ object AST {
 
   sealed abstract class Decl extends ASTNode
   case class StoreDecl(c: ChangeMode, ti: TypedIdent) extends Decl;
-  case class FunDecl(ident: Ident, params: List[Parameter], returns: StoreDecl, importList: List[GlobImport], cpsDecl: List[StoreDecl], cmd: List[Cmd]) extends Decl
-  case class ProcDecl(ident: Ident, params: List[Parameter], globImpList: List[GlobImport], cpsDecl: List[StoreDecl], cmd: List[Cmd]) extends Decl
+  case class FunDecl(ident: Ident, params: List[Parameter], returns: StoreDecl, importList: List[GlobImport], cpsDecl: List[StoreDecl], cmds: List[Cmd]) extends Decl
+  case class ProcDecl(ident: Ident, params: List[Parameter], globImpList: List[GlobImport], decls: List[StoreDecl], cmds: List[Cmd]) extends Decl
 
   case class GlobImport(f: Option[FlowMode], c: Option[ChangeMode], i: Ident) extends ASTNode
 
@@ -47,7 +47,7 @@ object AST {
   case object Const extends ChangeMode
   case object Var extends ChangeMode
 
-  // TODO class not needed
+  // TODO class not needed REMOVE!!!
   case class TupleExpr(l: List[Expr]) extends ASTNode
 
   case class Ident(value: String) extends ASTNode
@@ -59,8 +59,8 @@ object AST {
   case class FunCallExpr(i: Ident, e: TupleExpr) extends Expr;
   case class StoreExpr(i: Ident, isInitialization: Boolean) extends Expr;
   case class LiteralExpr(l: Literal) extends Expr;
-  case class ListExpr(ret:Expr, i:Ident, from:Expr, to:Expr, where:Expr) extends Expr;
-  
+  case class ListExpr(ret: Expr, i: Ident, from: Expr, to: Expr, where: Expr) extends Expr;
+
   abstract sealed class Factor extends ASTNode;
   abstract sealed class Literal extends Factor;
   case class IntLiteral(v: Int) extends Literal
@@ -83,25 +83,23 @@ object AST {
       }
     }
 
-    def listLevel(l: Type, level: Int = 0): Int = {
+    def listLevel(l: Type, level: Int = 0): Int =
       l match {
         case ListType(i) => return listLevel(i, level + 1);
         case _ => level
       }
-    }
 
-    def deepType(l: Type): Type = {
+    def deepType(l: Type): Type =
       l match {
         case ListType(i) => return deepType(i)
         case _ => l
       }
-    }
   }
 
   sealed class AtomType extends Type { override def matches(other: Type) = other == this || other == Any }
   case object IntType extends AtomType { override def toString() = "int" }
   case object BoolType extends AtomType { override def toString() = "bool" }
-  
+
   // phantom type
   case object Any extends AtomType {
     //    override def toString() = IntType.toString + "|" + BoolType.toString
@@ -150,7 +148,6 @@ object AST {
 
     println(l1 + " matches " + l2 + ": " + l1.matches(l2))
     println(l2 + " matches " + l1 + ": " + l2.matches(l1))
-    
-    
+
   }
 }

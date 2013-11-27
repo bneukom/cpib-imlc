@@ -128,16 +128,16 @@ public class ParseTableFrame extends JFrame {
 					String export = "";
 					final List<Production>[][] table = currentParseTable.table2();
 
-					List<T> termminals = currentParseTable.terminals2();
+					final List<T> termminals = currentParseTable.terminals2();
 					String row0 = "";
 					for (T t : termminals) {
 						row0 += (t.s() + ";");
 					}
 					export += (row0 + "\n");
 					
-					List<NT> nonTerminals = currentParseTable.nonTerminals2();
+					final List<NT> nonTerminals = currentParseTable.nonTerminals2();
 					for (int y = 0; y < table.length; ++y) {
-						String row = "" + nonTerminals.get(y).s();
+						String row = "" + nonTerminals.get(y).s() + ";";
 						for (int x = 0; x < table[y].length; ++x) {
 							row += (productionsString(table[y][x]) + ";");
 						}

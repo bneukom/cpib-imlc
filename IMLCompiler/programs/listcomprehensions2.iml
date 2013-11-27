@@ -1,0 +1,12 @@
+program listSum()
+global
+fun isPrime(in copy v:int) returns var b:bool
+do
+	b init := true
+endfun;
+
+var list:[int]
+do
+	list init := {x | x from 0 to 1000 where isPrime(x)}
+	// list := {x * x | x from 0 to 1000 where x mod 2 == 0}
+endprogram

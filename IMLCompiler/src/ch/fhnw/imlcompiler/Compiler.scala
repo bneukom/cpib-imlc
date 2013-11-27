@@ -20,7 +20,7 @@ object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with 
     //    val fold2 = l2.take(l2.size - 1).foldRight(l2.last.toString)((a: Int, b: String) => "(" + a + ", " + b + ")")
     //    println("DONE")
 
-    val file = scala.io.Source.fromFile("programs/listcomprehensions.iml")
+    val file = scala.io.Source.fromFile("programs/listcomprehensions2.iml")
     val imlcode = file.mkString
     file.close()
 
@@ -28,7 +28,7 @@ object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with 
       // parse
       val program = parse(imlcode)
       println("Parse Successful:")
-      println(program)
+      println(program.treeString)
       println()
 
       // context check
@@ -40,8 +40,9 @@ object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with 
       println("Flow Analysis Successful\n")
 
       // code transformations (for example list expressions)
-      // val transformed = transform(program, context);
-      //      println("AST Transformed\n")
+      val transformed = transform(program, context);
+      println("AST Transformed\n")
+      println(transformed.treeString)
 
       // TODO interpret
     } catch {

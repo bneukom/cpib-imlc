@@ -22,12 +22,11 @@ trait SemanticAnalysis {
   case class InvalidParamater(n: Expr, required: Type, actual: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid parameter type '" + actual + "' required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class DuplicateInitialize(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") store: '" + n.value + "' has already been initialized\n\n" + n.pos.longString + "\nAST: " + n);
   case class StoreNotInitialized(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") store: '" + n.value + "' has not been initialized\n\n" + n.pos.longString + "\nAST: " + n);
-  case class InvalidLValue(n: Expr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") expression: '" + n + "' is not a valid lvalue\n\n" + n.pos.longString + "\nAST: " + n);
+  case class InvalidLValue(n: Expr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid lvalue\n\n" + n.pos.longString + "\nAST: " + n);
   case class ConstModification(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") identifier '" + n.value + "' is const and can not be modified\n\n" + n.pos.longString + "\nAST: " + n);
   case class InStoreInitialization(n: Ident, f: FlowMode) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing " + f.toString().toLowerCase() + " mode store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class LoopedInit(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing store: " + n.value + " inside a loop body\n\n" + n.pos.longString + "\nAST: " + n);
   case class NoGlobalStoreFound(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") no global store found for imported store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
-
 
   private val globalStoreScope: GlobalStoreScope = GlobalStoreScope(new ListBuffer());
   private val localStoreScope: LocalStoreScopes = LocalStoreScopes(new HashMap());
@@ -225,8 +224,7 @@ trait SemanticAnalysis {
         val anonymousStore = Store(TypedIdent(i, IntType), Some(Copy), Some(Var), None, true);
         val tempScope = scope :+ anonymousStore;
         // TODO use linked list and :+ operator for temporary store!!!!
-        
-        
+
         // check the return type
         checkExpr(ret, tempScope, lvalue, loopedExpr)
         val retType = returnType(ret, tempScope); if (!retType.matches(IntType)) throw TypeMismatchError(ret, IntType, retType);
@@ -380,7 +378,7 @@ trait SemanticAnalysis {
       // check type of argument
       val exprReturnType = returnType(element._1, scope);
       if (exprReturnType != element._2.ti.t) throw InvalidParamater(element._1, element._2.ti.t, exprReturnType)
-
+      
     })
   }
 
@@ -430,7 +428,7 @@ trait SemanticAnalysis {
     if (globalMethodScope.decls.contains(identifier)) throw new DuplicateIdentException(identifier)
 
     globalMethodScope.decls += (identifier -> methodDecl)
-    
+
     val localScope = localStoreScope.scope.getOrElseUpdate(identifier, new ListBuffer[Store]());
 
     loadMethodGlobals(imports, localScope);
@@ -452,7 +450,7 @@ trait SemanticAnalysis {
           // in/out stores are initialized by default
           val initialized = imp.f.forall(f => f == In || f == InOut)
           scope += Store(typedIdent, None, imp.c, imp.f, initialized);
-          
+
         }
       }
 
