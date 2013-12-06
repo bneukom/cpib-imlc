@@ -45,37 +45,22 @@ trait LL1 {
   def onlyEpsilon(sl: List[Symbol]): Boolean = sl.forall(s => s match { case T("") => true; case _ => false; });
 
   def first(ls: List[Symbol], prods: List[Production], visited: ListBuffer[Symbol]): Set[T] = {
-    ls.foreach(s => s match {
-      case T("") => return Set()
-      case t: T => return (t :: Nil).toSet
-      case nt: NT => return first(nt, prods, visited)
+    if (ls.isEmpty || onlyEpsilon(ls)) return Set()
+
+    ls.head match {
+      case t: T => return Set(t);
+      case nt: NT => return if (nullable(ls.head :: Nil, prods, ListBuffer[NT]())) first(ls.head, prods, visited) ++ first(ls.tail, prods, visited) else first(ls.head, prods, visited)
       case _ => throw new IllegalStateException
-    })
-    Set();
+    }
+
+    Set()
   }
+
   def first(nt: Symbol, prods: List[Production], visited: ListBuffer[Symbol] = ListBuffer[Symbol]()): Set[T] = {
     if (visited.contains(nt)) return Set()
     visited += nt
 
-    val firsts = new HashSet[T]
-    prods.foreach(prod => {
-      if (prod.l == nt) {
-        if (onlyEpsilon(prod.r))
-          firsts ++= Set[T]();
-        else {
-          prod.r.head match {
-            case T("") => {}; // empty
-            case t: T => firsts ++= (t :: Nil).toSet
-            case nt: NT => {
-              if (nullable(nt, prods, ListBuffer[NT]()) && prod.r.tail.headOption.isDefined) firsts ++= (first(nt, prods, visited) ++ first(prod.r.tail.head, prods, visited))
-              else firsts ++= first(nt, prods, visited)
-            }
-            case _ => throw new IllegalStateException;
-          }
-        }
-      }
-    })
-    return firsts.toSet;
+    return prods.foldRight(Set[T]())((prod, firsts) => if (prod.l == nt) firsts ++ first(prod.r, prods, visited) else firsts);
   }
 
   def follow(nt: NT, prods: List[Production], startSymbol: String, visited: ListBuffer[Symbol] = ListBuffer[Symbol](), cache: Boolean = true): Set[T] = {
@@ -124,9 +109,10 @@ trait LL1 {
     nts.toSet
   }
 
-  def headTailZip[A](l: List[A]): List[(A, List[A])] =
+  def headTailZip[A](l: List[A]): List[(A, List[A])] = {
     if (l.isEmpty) Nil
     else (l.head, l.tail) :: headTailZip(l.tail)
+  }
 
   def genParseTable(productions: List[Production], startSymbol: String): ParseTable = {
     val terminals = ts(productions).toList :+ T("$");
@@ -164,4 +150,5 @@ trait LL1 {
       System.err.println("Grammar is not ll(1) (duplicate parse table entry)")
     }
   }
+
 }

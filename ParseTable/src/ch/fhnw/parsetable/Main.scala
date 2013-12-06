@@ -57,7 +57,7 @@ class ParseTableGenerator extends EBNFParsers with BNFTransformer with LL1 {
     val parseTable = genParseTable(transformedGrammar.prods, startSymbol)
     println()
     println("Parse table generated")
-    
+
     return parseTable;
   }
 
@@ -72,6 +72,13 @@ class ParseTableGenerator extends EBNFParsers with BNFTransformer with LL1 {
     generateParseTable(grammarString)
   }
 
+  def test() {
+    val l = List("a", "b", "c", "d");
+
+    val l2 = headTailZip(l);
+    println(l2)
+  }
+
 }
 
 object Main {
@@ -82,8 +89,8 @@ object Main {
     //    } catch {
     //      case e: PraseTableException => System.err.println(e.getMessage())
     //    }
-
-    val l = List();
+    val p = new ParseTableGenerator;
+    p.test;
   }
 
 }

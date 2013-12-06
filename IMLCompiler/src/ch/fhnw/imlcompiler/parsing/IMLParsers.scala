@@ -43,6 +43,7 @@ trait IMLParsers extends RegexParsers {
   def intLiteral: Parser[IntLiteral] = positioned("[0-9]+".r ^^ { x => IntLiteral(x.toInt) })
   def boolLiteral: Parser[BoolLiteral] = positioned(("true" | "false") ^^ { x => BoolLiteral(x.toBoolean) })
   def listLiteral: Parser[ListLiteral] = positioned("[" ~ repsep(expr, ",") ~ "]" ^^ { case "[" ~ l ~ "]" => ListLiteral(l) })
+  // TODO only define [] (empty List) and transform [1,2,3,4] into 1 :: 2 :: 3 :: 4 :: []?
 
   // expressions
   def monadicExpr: Parser[MonadicExpr] = positioned(monadicAddExpr | monadicNotExpr | monadicListExpr)
