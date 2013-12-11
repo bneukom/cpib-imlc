@@ -11,15 +11,6 @@ import ch.fhnw.imlcompiler.transforming.ASTTransformers
 object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with ASTTransformers {
 
   def main(args: Array[String]) {
-    //    val f = LiteralExpr(IntLiteral(1))
-    //    val l = List(LiteralExpr(IntLiteral(2)), LiteralExpr(ListLiteral(List())))
-    //    val ll = f :: l;
-    //    val fold = ll.take(ll.size - 1).foldRight(ll.last: Expr)((a: Expr, b: Expr) => DyadicExpr(a, ConcatOpr, b))
-    //
-    //    val l2 = List(1)
-    //    val fold2 = l2.take(l2.size - 1).foldRight(l2.last.toString)((a: Int, b: String) => "(" + a + ", " + b + ")")
-    //    println("DONE")
-
     val file = scala.io.Source.fromFile("programs/listcomprehensions2.iml")
     val imlcode = file.mkString
     file.close()
