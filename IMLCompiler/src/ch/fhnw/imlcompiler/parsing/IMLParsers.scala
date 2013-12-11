@@ -61,12 +61,6 @@ trait IMLParsers extends RegexParsers {
   def term2: Parser[Expr] = positioned(term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
   def term3: Parser[Expr] = positioned(factor * (multOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
 
-  //  def expr: Parser[Expr] = positioned((term0 ~ concatOpr ~ expr ^^ { case e ~ opr ~ e1 => DyadicExpr(e, opr, e1) }) | term0) // the | models the [optional] (so still LL1 compatible)
-  //  def term0: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
-  //  def term1: Parser[Expr] = positioned(term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 }) // the | models [optional] (so still LL1 compatible)
-  //  def term2: Parser[Expr] = positioned(term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
-  //  def term3: Parser[Expr] = positioned(factor * (multOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))
-
   def tupleExpr: Parser[TupleExpr] = positioned("(" ~ repsep(expr, ",") ~ ")" ^^ { case "(" ~ e ~ ")" => TupleExpr(e) })
 
   def flowMode: Parser[FlowMode] = positioned("in" ^^^ { In } | "out" ^^^ { Out } | "inout" ^^^ { InOut }).withFailureMessage("flowmode expected")

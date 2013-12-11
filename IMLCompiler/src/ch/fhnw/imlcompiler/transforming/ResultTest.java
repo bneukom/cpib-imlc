@@ -2,16 +2,17 @@ package ch.fhnw.imlcompiler.transforming;
 
 public class ResultTest {
 
+	// TODO globals should not be here! (They're only visible in main method)
 	// global
-	static Wrapper _intValue = new Wrapper(); // intValue:int;
-	static Wrapper _list = new Wrapper(); // list:[int];
-	static Wrapper _nestedList = new Wrapper(); // list:[int];
+	static Ref _intValue = new Ref(); // intValue:int;
+	static Ref _list = new Ref(); // list:[int];
+	static Ref _nestedList = new Ref(); // list:[int];
 
 	// TODO what if nested :: operations are used (does it still work)?
 	// used for :: operations
 	static Object[] tmp;
 
-	public static void addThree(Wrapper _value /* in ref int32 */) { // proc
+	public static void addThree(Ref _value /* in ref int32 */) { // proc
 		_value.value = (int) _value.value + 3;
 	}
 
@@ -99,8 +100,9 @@ public class ResultTest {
 		System.out.print("]" + (newline ? "\n" : ""));
 	}
 
+	// TODO or just use an array?
 	// by reference wrapper
-	private static class Wrapper {
+	private static class Ref {
 		public Object value;
 	}
 }

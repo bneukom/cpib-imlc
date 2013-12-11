@@ -6,9 +6,10 @@ import Document._
 import ch.fhnw.imlcompiler.parsing.IMLParsers
 import ch.fhnw.imlcompiler.checking.FlowAnalysis
 import ch.fhnw.imlcompiler.transforming.ASTTransformers
+import ch.fhnw.codegen.JVMByteCodeGen
 
 // TODO what are default modes?
-object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with ASTTransformers {
+object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with ASTTransformers with JVMByteCodeGen {
 
   def main(args: Array[String]) {
     val file = scala.io.Source.fromFile("programs/listcomprehensions2.iml")
@@ -35,16 +36,14 @@ object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with 
       println("AST Transformed\n")
       println(transformed.treeString)
 
-      // TODO interpret
+      // generate appropriate code
+      generateCode(transformed);
+      println("Byte Code Sucessfully Generated");
+
     } catch {
-      //      case e: ParseException => { e.printStackTrace() }
-      //      case e: CompilerException => { e.printStackTrace() }
       case e: ParseException => { System.err.println(e.getMessage); }
       case e: CompilerException => { System.err.println(e.getMessage); }
     }
-
-    //    val lit = parser("[[[], [[3]]]]", listLiteral)
-    //    println(lit + ": " + listType(lit, 0))
   }
 
 }

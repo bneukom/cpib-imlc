@@ -73,6 +73,8 @@ trait ASTTransformers {
   def transformListExpr(lexpr: ListExpr): (StoreDecl, StoreDecl, List[Cmd], StoreExpr) = {
     val countIdent = Ident("$" + lexpr.i.value + count)
     val listIdent = Ident("$$l" + count)
+    count += 1
+
     val counterStoreDecl = StoreDecl(Var, TypedIdent(countIdent, IntType))
     val listStoreDecl = StoreDecl(Var, TypedIdent(listIdent, ListType(IntType)))
     val countInitCmd = BecomesCmd(StoreExpr(countIdent, true), lexpr.to)
@@ -84,8 +86,6 @@ trait ASTTransformers {
 
     val whileCmd = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), GT, lexpr.to), whereCmd :: incrementer :: Nil)
     val resultExpr = StoreExpr(listIdent, false)
-
-    count += 1
 
     return (counterStoreDecl, listStoreDecl, countInitCmd :: listInitCmd :: whileCmd :: Nil, resultExpr)
   }

@@ -10,6 +10,7 @@ do
 endfun;
 fun isPrime(in copy v:int) returns var b:bool
 do
+	return true
 	b init := true
 endfun;
 
