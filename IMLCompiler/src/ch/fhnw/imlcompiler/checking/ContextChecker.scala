@@ -311,6 +311,7 @@ trait SemanticAnalysis {
 
         initializedStores ++= (ifInits ++ elseInits);
         
+        // TODO print which store!
         if (ifInits != elseInits) throw BranchNotAllInitialized(ifCmd)
 
         println("ifinits: " + ifInits);
