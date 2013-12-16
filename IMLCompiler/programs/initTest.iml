@@ -13,7 +13,7 @@ do
 		b init := true;
 		i init := 2
 	endif;
-	i init := 3;
+	i := 3;
 	b := i > 4
 endfun;
 

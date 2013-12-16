@@ -8,10 +8,10 @@ import ch.fhnw.imlcompiler.transforming.ASTTransformers
 import ch.fhnw.codegen.JVMByteCodeGen
 
 // TODO what are default modes?
-object Compiler extends IMLParsers with SemanticAnalysis with ASTTransformers with JVMByteCodeGen {
+object Compiler extends IMLParsers with ContextChecker with ASTTransformers with JVMByteCodeGen {
 
   def main(args: Array[String]) {
-    val file = scala.io.Source.fromFile("programs/initTest.iml")
+    val file = scala.io.Source.fromFile("programs/listcomprehensions2.iml")
     val imlcode = file.mkString
     file.close()
 
@@ -29,7 +29,7 @@ object Compiler extends IMLParsers with SemanticAnalysis with ASTTransformers wi
       // code transformations (for example list expressions)
       val transformed = transform(program, context);
       println("AST Transformed\n")
-      println(transformed)
+      println(transformed.treeString)
 
       // generate appropriate code
       generateCode(transformed);

@@ -26,12 +26,12 @@ trait IMLParsers extends RegexParsers {
   def inputCmd: Parser[InputCmd] = positioned("input" ~> expr ^^ { case e => InputCmd(e) })
   def outputCmd: Parser[OutputCmd] = positioned("output" ~> expr ^^ { case e => OutputCmd(e) })
 
-  def cpsCmd: Parser[List[Cmd]] = repsep(cmd, ";")
+  def cpsCmd: Parser[List[Cmd]] = rep1sep(cmd, ";")
 
   // operators
   def multOpr: Parser[MultOpr] = positioned("*" ^^^ { TimesOpr } | "div" ^^^ { DivOpr } | "mod" ^^^ { ModOpr })
   def boolOpr: Parser[BoolOpr] = positioned("&&" ^^^ { Cand } | "||" ^^^ { Cor })
-  def relOpr: Parser[RelOpr] = positioned("==" ^^^ { EQ } | "/=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT })
+  def relOpr: Parser[RelOpr] = positioned("==" ^^^ { EQ } | "!=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT })
   def addOpr: Parser[AddOpr] = positioned("-" ^^^ { MinusOpr } | "+" ^^^ { PlusOpr })
   def listOpr: Parser[MonadicListOpr] = positioned("head" ^^^ { HeadOpr } | "tail" ^^^ { TailOpr } | "length" ^^^ { LengthOpr })
   def concatOpr: Parser[DyadicListOpr] = positioned("::" ^^^ { ConcatOpr })
@@ -50,7 +50,7 @@ trait IMLParsers extends RegexParsers {
   def monadicAddExpr: Parser[MonadicExpr] = positioned(addOpr ~ factor ^^ { case op ~ exp => MonadicExpr(exp, op) })
   def monadicNotExpr: Parser[MonadicExpr] = positioned("not" ~ factor ^^ { case "not" ~ exp => MonadicExpr(exp, Not) })
   def monadicListExpr: Parser[MonadicExpr] = positioned(listOpr ~ factor ^^ { case l ~ f => MonadicExpr(f, l) })
-  def listExpr: Parser[ListExpr] = positioned("{" ~ expr ~ "|" ~ ident ~ "from" ~ expr ~ "to" ~ expr ~ "where" ~ expr ~ "}" ^^ { case "{" ~ r ~ "|" ~ i ~ "from" ~ from ~ "to" ~ to ~ "where" ~ where ~ "}" => ListExpr(r, i, from, to, where) })
+  def listExpr: Parser[ListExpr] = positioned("{" ~ expr ~ "|" ~ ident ~ "from" ~ expr ~ "to" ~ expr ~ "when" ~ expr ~ "}" ^^ { case "{" ~ r ~ "|" ~ i ~ "from" ~ from ~ "to" ~ to ~ "when" ~ where ~ "}" => ListExpr(r, i, from, to, where) })
 
   def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | listExpr | "(" ~> expr <~ ")")
 
