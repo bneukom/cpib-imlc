@@ -11,12 +11,12 @@ import ch.fhnw.imlcompiler.AST.Decl
 import scala.collection.mutable.LinkedList
 import scala.collection.mutable.ListBuffer
 
+// TODO into SemanticAnalysis.scala?
 // TODO really object??!!
 object ProgramContext {
   case class Context(globalStoreScope: GlobalStoreScope, localStoreScope: LocalStoreScopes, globalMethodScope: GlobalMethodScope)
-
-  case class Store(typedIdent: TypedIdent, mech: Option[MechMode], change: Option[ChangeMode], flow: Option[FlowMode], var initialzed: Boolean)
-
+  
+  case class Store(typedIdent: TypedIdent, mech: Option[MechMode], change: Option[ChangeMode], flow: Option[FlowMode])
   case class GlobalStoreScope(scope: ListBuffer[Store])
   case class LocalStoreScopes(scope: HashMap[Ident, ListBuffer[Store]]) // includes global imports and parameters
   case class GlobalMethodScope(decls: HashMap[Ident, Decl])

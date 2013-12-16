@@ -4,15 +4,14 @@ import ch.fhnw.imlcompiler.AST._
 import scala.text._
 import Document._
 import ch.fhnw.imlcompiler.parsing.IMLParsers
-import ch.fhnw.imlcompiler.checking.FlowAnalysis
 import ch.fhnw.imlcompiler.transforming.ASTTransformers
 import ch.fhnw.codegen.JVMByteCodeGen
 
 // TODO what are default modes?
-object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with ASTTransformers with JVMByteCodeGen {
+object Compiler extends IMLParsers with SemanticAnalysis with ASTTransformers with JVMByteCodeGen {
 
   def main(args: Array[String]) {
-    val file = scala.io.Source.fromFile("programs/listcomprehensions2.iml")
+    val file = scala.io.Source.fromFile("programs/initTest.iml")
     val imlcode = file.mkString
     file.close()
 
@@ -20,21 +19,17 @@ object Compiler extends IMLParsers with SemanticAnalysis with FlowAnalysis with 
       // parse
       val program = parse(imlcode)
       println("Parse Successful:")
-      println(program.treeString)
+      println(program)
       println()
 
       // context check
-      val context = checkSemantics(program);
-      println("Semantic Analysis Successful\n")
-
-      // check for possible flow errors (const and initialized)
-      ceckFlow(program, context);
-      println("Flow Analysis Successful\n")
+      val context = contextCheck(program);
+      println("Context Checking Successful\n")
 
       // code transformations (for example list expressions)
       val transformed = transform(program, context);
       println("AST Transformed\n")
-      println(transformed.treeString)
+      println(transformed)
 
       // generate appropriate code
       generateCode(transformed);

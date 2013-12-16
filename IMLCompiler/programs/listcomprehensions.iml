@@ -5,8 +5,17 @@ do
 	if length l == 0 do
 		r init := 0
 	else
-		r := head l + sum(tail tail tail l) // init should be allowed (and must actually be there)
+		r init := head l + sum(tail l) // init should be allowed (and must actually be there)
 	endif
+	
+	if true do
+		r init := 0
+	else
+		skip
+	endif
+	
+	r := 0;
+	
 endfun;
 fun isPrime(in copy v:int) returns var b:bool
 do
@@ -18,7 +27,7 @@ var sum:int;
 var primes:[int];
 var squaredPrimes:[int]
 do
-	primes init := {x  | x from 2 to 1000 where isPrime(x)};
+	primes init := {x | x from 2 to 1000 where isPrime(x)};
  	squaredPrimes init := {x * x | x from 2 to 1000 where isPrime(x)}
 endprogram
 
