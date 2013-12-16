@@ -2,18 +2,13 @@ package ch.fhnw.imlcompiler.transforming;
 
 public class ResultTest {
 
-	// TODO globals should not be here! (They're only visible in main method)
-	// global
-	static Ref _intValue = new Ref(); // intValue:int;
-	static Ref _list = new Ref(); // list:[int];
-	static Ref _nestedList = new Ref(); // list:[int];
 
 	// TODO what if nested :: operations are used (does it still work)?
 	// used for :: operations
 	static Object[] tmp;
 
-	public static void addThree(Ref _value /* in ref int32 */) { // proc
-		_value.value = (int) _value.value + 3;
+	public static void addThree(int[] value /* in ref int32 */) { // proc
+		value[0] = (int) value[0] + 3;
 	}
 
 	// if by value direct access, else via Wrapper
@@ -39,45 +34,50 @@ public class ResultTest {
 	 * list := tail list;
 	 */
 	public static void main(String[] args) {
+		// globals
+		int intValue = 0; // intValue:int;
+		Object[] list; // list:[int];
+		Object[] nestedList; // list:[int];
+		
 		// list init := [1,2,3,4];
-		_list.value = new Object[] { 1, 2, 3, 4 };
+		list = new Object[] { 1, 2, 3, 4 };
 
 		// list := 0 :: list;
-		tmp = (Object[]) _list.value;
-		_list.value = new Object[((Object[]) _list.value).length + 1];
-		System.arraycopy(tmp, 0, _list.value, 1, tmp.length);
-		((Object[]) _list.value)[0] = 0;
+		tmp = (Object[]) list;
+		list = new Object[((Object[]) list).length + 1];
+		System.arraycopy(tmp, 0, list, 1, tmp.length);
+		((Object[]) list)[0] = 0;
 
 		// debugout list;
-		printarr((Object[]) _list.value);
+		printarr((Object[]) list);
 
 		// nestedList init := [[1,2],[3,4]];
-		_nestedList.value = new Object[] { new Object[] { 1, 2 }, new Object[] { 3, 4 } };
+		nestedList = new Object[] { new Object[] { 1, 2 }, new Object[] { 3, 4 } };
 
 		// nestedList := [-2,-1,0] :: nestedList;
-		tmp = (Object[]) _nestedList.value;
-		_nestedList.value = new Object[((Object[]) _nestedList.value).length + 1];
-		System.arraycopy(tmp, 0, _nestedList.value, 1, tmp.length);
-		((Object[]) _nestedList.value)[0] = new Object[] { -2, -1, 0 };
+		tmp = (Object[]) nestedList;
+		nestedList = new Object[((Object[]) nestedList).length + 1];
+		System.arraycopy(tmp, 0, nestedList, 1, tmp.length);
+		((Object[]) nestedList)[0] = new Object[] { -2, -1, 0 };
 
 		// debugout nestedList;
-		printarr((Object[]) _nestedList.value);
+		printarr((Object[]) nestedList);
 
 		// intValue init := head list;
-		_intValue.value = ((Object[]) _list.value)[0];
-		System.out.println(_intValue.value);
+		intValue = (int) list[0];
+		System.out.println(intValue);
 
 		// list := head nestedList;
-		_list.value = ((Object[]) _nestedList.value)[0]; // possible due to immutability of lists
+		list = (Object[]) nestedList[0]; // possible due to immutability of lists
 
 		// debugout list;
-		printarr((Object[]) _list.value);
+		printarr(list);
 
-		_list.value = new Object[((Object[]) _nestedList.value).length - 1];
-		System.arraycopy(_nestedList.value, 1, _list.value, 0, ((Object[]) _nestedList.value).length - 1);
+		list = new Object[((Object[]) nestedList).length - 1];
+		System.arraycopy(nestedList, 1, list, 0, nestedList.length - 1);
 
 		// debugout list;
-		printarr((Object[]) _list.value);
+		printarr(list);
 	}
 
 	private static void printarr(Object[] arr) {
@@ -100,9 +100,5 @@ public class ResultTest {
 		System.out.print("]" + (newline ? "\n" : ""));
 	}
 
-	// TODO or just use an array?
-	// by reference wrapper
-	private static class Ref {
-		public Object value;
-	}
 }
+	

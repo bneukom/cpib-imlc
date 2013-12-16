@@ -19,7 +19,7 @@ trait SemanticAnalysis {
   case class UndefinedStoreException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined store '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class UndefinedMethodException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined method '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class ProcReturnException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") proc method '" + n.value + "' do not have return types\n\n" + n.pos.longString + "\nAST: " + n);
-  case class BranchNotAllInitialized(c:IfCmd) extends CompilerException("(" + c.pos.line + ":" + c.pos.column + ") not all stores have been initialized in both branches\n\n" + c.pos.longString + "\nAST: " + c);
+  case class BranchNotAllInitialized(c:IfCmd, stores:HashSet[Store]) extends CompilerException("(" + c.pos.line + ":" + c.pos.column + ") some stores (" + stores.map(s => s.typedIdent.i.value) +  ") have been initialized in both branches\n\nAST: " + c);
   case class InvalidParamaterAmount(n: TupleExpr, required: Int, actual: Int) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid amount of parameters " + actual + " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class InvalidParamater(n: Expr, required: Type, actual: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid parameter type '" + actual + "' required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class DuplicateInitialize(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") store: '" + n.value + "' has already been initialized\n\n" + n.pos.longString + "\nAST: " + n);
@@ -311,8 +311,10 @@ trait SemanticAnalysis {
 
         initializedStores ++= (ifInits ++ elseInits);
         
+        val diff = ifInits.diff(elseInits)
+        
         // TODO print which store!
-        if (ifInits != elseInits) throw BranchNotAllInitialized(ifCmd)
+        if (diff.size > 0) throw BranchNotAllInitialized(ifCmd, diff)
 
         println("ifinits: " + ifInits);
         println("elseinits: " + elseInits);

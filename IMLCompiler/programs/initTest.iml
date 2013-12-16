@@ -2,13 +2,19 @@ program listSum()
 global
 fun isPrime(in copy v:int) returns var b:bool
 local
-	var i:int
+	var i:int;
+	var l:[int]
+	
 do
-	if true do
-		b init := true
+	if v > 3 do
+		b init := true;
+		i init := 1
 	else 
-		i init := 3
-	endif
+		b init := true;
+		i init := 2
+	endif;
+	i init := 3;
+	b := i > 4
 endfun;
 
 var list:[int]
