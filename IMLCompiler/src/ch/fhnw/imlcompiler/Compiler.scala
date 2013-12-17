@@ -19,7 +19,7 @@ object Compiler extends IMLParsers with ContextChecker with ASTTransformers with
       // parse
       val program = parse(imlcode)
       println("Parse Successful:")
-      println(program)
+      println(program.treeString)
       println()
 
       // context check
@@ -30,6 +30,7 @@ object Compiler extends IMLParsers with ContextChecker with ASTTransformers with
       val transformed = transform(program, context);
       println("AST Transformed\n")
       println(transformed.treeString)
+      println()
 
       // generate appropriate code
       generateCode(transformed);

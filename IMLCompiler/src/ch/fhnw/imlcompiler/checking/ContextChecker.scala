@@ -17,7 +17,7 @@ trait ContextChecker {
   case class UndefinedStoreException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined store '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class UndefinedMethodException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined method '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class ProcReturnException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") proc method '" + n.value + "' do not have return types\n\n" + n.pos.longString + "\nAST: " + n);
-  case class BranchNotAllInitialized(c: IfCmd, stores: HashSet[Store]) extends CompilerException("(" + c.pos.line + ":" + c.pos.column + ") some stores (" + (stores.map(s => s.typedIdent.i.value.toString).reduceLeft[String] { (acc, n) => acc + ", " + n }) + ") have been initialized in both if branches\n\nAST: " + c);
+  case class BranchNotAllInitialized(c: IfCmd, stores: HashSet[Store]) extends CompilerException("(" + c.pos.line + ":" + c.pos.column + ") the stores [" + (stores.map(s => s.typedIdent.i.value.toString).reduceLeft[String] { (acc, n) => acc + ", " + n }) + "] have not been initialized in both if branches\n\nAST: " + c);
   case class InvalidParamaterAmount(n: TupleExpr, required: Int, actual: Int) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid amount of parameters " + actual + " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class InvalidParamater(n: Expr, required: Type, actual: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid parameter type '" + actual + "' required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class DuplicateInitialize(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") store: '" + n.value + "' has already been initialized\n\n" + n.pos.longString + "\nAST: " + n);
@@ -54,7 +54,7 @@ trait ContextChecker {
     println()
 
     // check all defined methods for possible errors (type, flow, initialized, etc.)
-    checkMethods(prog.cpsDecl)(context);
+    checkRoutines(prog.cpsDecl)(context);
 
     // check the main of the program for the same errors
     checkCpsCmd(prog.commands, context.globalStoreScope)(context);
@@ -414,24 +414,26 @@ trait ContextChecker {
 
       decl match {
         case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => {
-          loadMethodDecl(identifier, decl, cpsDecl, params, imports, cmd);
+          loadRoutineDecl(identifier, decl, cpsDecl, params, imports, cmd);
 
           // also load return value into local scope (IML40)
           loadLocalDecl(ret.ti.i, ret, context.getLocalStoreScope(identifier))
         }
-        case ProcDecl(identifier, params, imports, cpsDecl, cmd) => loadMethodDecl(identifier, decl, cpsDecl, params, imports, cmd);
+        case ProcDecl(identifier, params, imports, cpsDecl, cmd) => loadRoutineDecl(identifier, decl, cpsDecl, params, imports, cmd);
         case _ => // ignore
       }
     });
   }
 
-  def checkMethods(cpsDecl: List[Decl])(implicit context: Context) = cpsDecl.foreach(decl => checkMethod(decl))
-  def checkMethod(decl: Decl)(implicit context: Context) {
+  def checkRoutines(cpsDecl: List[Decl])(implicit context: Context) = cpsDecl.foreach(decl => checkRoutine(decl))
+  def checkRoutine(decl: Decl)(implicit context: Context) {
     decl match {
       case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => {
-        checkCpsCmd(cmd, context.getLocalStoreScope(identifier));
-
-        // TODO check return type
+        
+        val initialized = HashSet[Store]();
+        checkCpsCmd(cmd, context.getLocalStoreScope(identifier), initialized = initialized);
+        
+        if (initialized.find(s => s.typedIdent.i == ret.ti.i).isEmpty) throw StoreNotInitialized(ret.ti.i);
       }
       case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkCpsCmd(cmd, context.getLocalStoreScope(identifier));
       case StoreDecl(_, init) =>
@@ -439,19 +441,19 @@ trait ContextChecker {
     }
   }
 
-  def loadMethodDecl(identifier: Ident, methodDecl: Decl, cpsDecl: List[Decl], paramList: List[Parameter], imports: List[GlobImport], cpsCmd: List[Cmd])(implicit context: Context) {
+  def loadRoutineDecl(identifier: Ident, methodDecl: Decl, cpsDecl: List[Decl], paramList: List[Parameter], imports: List[GlobImport], cpsCmd: List[Cmd])(implicit context: Context) {
     // multiple methods with same name
     if (context.globalMethodScope.contains(identifier)) throw new DuplicateIdentException(identifier)
 
     context.globalMethodScope += (identifier -> methodDecl)
     val localScope = context.getLocalStoreScope(identifier);
 
-    loadMethodGlobals(imports, localScope);
+    loadRoutineGlobals(imports, localScope);
     loadLocalParams(paramList, localScope)
     loadLocalCpsDecl(identifier, cpsDecl, localScope)
   }
 
-  def loadMethodGlobals(imports: List[GlobImport], scope: ListBuffer[Store])(implicit context: Context) {
+  def loadRoutineGlobals(imports: List[GlobImport], scope: ListBuffer[Store])(implicit context: Context) {
     imports.foreach(imp => {
       if (scope.find(x => x.typedIdent.i == imp.i).isDefined) throw DuplicateIdentException(imp.i);
 
