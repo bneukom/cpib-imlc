@@ -28,41 +28,21 @@ trait ContextChecker {
   case class LoopedInit(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing store: " + n.value + " inside a loop body\n\n" + n.pos.longString + "\nAST: " + n);
   case class NoGlobalStoreFound(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") no global store found for imported store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
 
-  case class Store(val typedIdent: TypedIdent, val mech: Option[MechMode], val change: Option[ChangeMode], val flow: Option[FlowMode])
-  class Context {
-    val globalStoreScope = ListBuffer[Store]();
-    val localStoreScope = HashMap[Ident, ListBuffer[Store]]();
-    val globalMethodScope = HashMap[Ident, Decl]();
-
-    // TODO create methods for enterLoop() enterBranch() enterRoutine() this would reduce parameters a lot!
-    // but well this is not really functional!!!
-
-    def getLocalStoreScope(s: Ident): ListBuffer[Store] = return localStoreScope.getOrElseUpdate(s, ListBuffer[Store]())
-    def getLocalStoreScope(s: String): ListBuffer[Store] = return localStoreScope.getOrElseUpdate(Ident(s), ListBuffer[Store]())
-
-  }
-
-  def contextCheck(prog: Program): Context = {
-    val context = new Context;
+  def contextCheck(prog: Program): SymbolTable = {
+    val symbolTable = new SymbolTable;
 
     // load global declarations first (so we don't need any forward declarations)
-    loadProgParams(prog.params)(context);
-    loadGlobalCpsDecl(prog.cpsDecl)(context);
+    loadProgParams(prog.params)(symbolTable);
+    loadGlobalCpsDecl(prog.cpsDecl)(symbolTable);
 
-    println("Scope loaded: ")
-    println(context.localStoreScope);
-    println()
+    // check all defined methods and the main program for possible errors (type, flow, initialized, etc.)
+    checkRoutines(prog.cpsDecl)(symbolTable);
+    checkCpsCmd(prog.commands, symbolTable.globalStores)(symbolTable);
 
-    // check all defined methods for possible errors (type, flow, initialized, etc.)
-    checkRoutines(prog.cpsDecl)(context);
-
-    // check the main of the program for the same errors
-    checkCpsCmd(prog.commands, context.globalStoreScope)(context);
-
-    return context;
+    return symbolTable;
   }
 
-  def checkDyadicOpr(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: ListBuffer[Store])(implicit context: Context) = {
+  def checkDyadicOpr(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: ListBuffer[Store])(implicit symbolTable: SymbolTable) = {
     val lhsType = returnType(lhs, scope);
     val rhsType = returnType(rhs, scope)
     o match {
@@ -85,7 +65,7 @@ trait ContextChecker {
     }
   }
 
-  def checkMonadicOpr(rhs: Expr, o: MonadicOpr, scope: ListBuffer[Store])(implicit context: Context) {
+  def checkMonadicOpr(rhs: Expr, o: MonadicOpr, scope: ListBuffer[Store])(implicit symbolTable: SymbolTable) {
     val rhsType = returnType(rhs, scope);
 
     o match {
@@ -102,7 +82,7 @@ trait ContextChecker {
     }
   }
 
-  def returnType(l: Literal, scope: ListBuffer[Store])(implicit context: Context): Type = {
+  def returnType(l: Literal, scope: ListBuffer[Store])(implicit symbolTable: SymbolTable): Type = {
     l match {
       case IntLiteral(_) => IntType
       case BoolLiteral(_) => BoolType
@@ -110,7 +90,7 @@ trait ContextChecker {
     }
   }
 
-  def listType(list: ListLiteral, scope: ListBuffer[Store], depth: Int = 0)(implicit context: Context): (Type, Int) = {
+  def listType(list: ListLiteral, scope: ListBuffer[Store], depth: Int = 0)(implicit symbolTable: SymbolTable): (Type, Int) = {
 
     val children = ListBuffer[Tuple2[Type, Int]]();
 
@@ -151,7 +131,7 @@ trait ContextChecker {
     }
   }
 
-  def dyadicReturnType(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: ListBuffer[Store])(implicit context: Context) = {
+  def dyadicReturnType(lhs: Expr, o: DyadicOpr, rhs: Expr, scope: ListBuffer[Store])(implicit symbolTable: SymbolTable) = {
     o match {
       case PlusOpr | MinusOpr => IntType
       case DivOpr | TimesOpr | ModOpr => IntType
@@ -161,7 +141,7 @@ trait ContextChecker {
     }
   }
 
-  def monadicReturnType(o: MonadicOpr, rhs: Expr, scope: ListBuffer[Store])(implicit context: Context) = {
+  def monadicReturnType(o: MonadicOpr, rhs: Expr, scope: ListBuffer[Store])(implicit symbolTable: SymbolTable) = {
     o match {
       case PlusOpr | MinusOpr => IntType
       case Not => BoolType
@@ -169,7 +149,7 @@ trait ContextChecker {
         val rhsReturn = returnType(rhs, scope);
         rhsReturn match {
           case ListType(t) => t
-          case _ => throw new CompilerException("impossible return type");
+          case _ => throw new IllegalStateException
         }
       }
       case TailOpr => returnType(rhs, scope);
@@ -177,7 +157,7 @@ trait ContextChecker {
     }
   }
 
-  def returnType(e: Expr, scope: ListBuffer[Store])(implicit context: Context): Type = {
+  def returnType(e: Expr, scope: ListBuffer[Store])(implicit context: SymbolTable): Type = {
     e match {
       case DyadicExpr(lhs, opr, rhs) => dyadicReturnType(lhs, opr, rhs, scope)
       case MonadicExpr(rhs, opr) => monadicReturnType(opr, rhs, scope)
@@ -188,9 +168,10 @@ trait ContextChecker {
           case Some(store) => store.typedIdent.t;
         }
       }
-      case ListExpr(_, _, _, _, _) => ListType(IntType)
+      //      case ListExpr(o, _, _, _, _) => ListType(returnType(o, scope)) // infer type of list via output expression
+      case ListExpr(o, _, _, _, _) => ListType(IntType) // infer type of list via output expression
       case FunCallExpr(i, _) => {
-        context.globalMethodScope.find(x => x._1 == i) match {
+        context.routines.find(x => x._1 == i) match {
           case None => throw UndefinedMethodException(i)
           case Some(m) => {
             m._2 match {
@@ -203,8 +184,7 @@ trait ContextChecker {
     }
   }
 
-  // TODO branched initialization (what if store was initialized only in if block or if and else both?)
-  def checkExpr(e: Expr, scope: ListBuffer[Store], lvalue: Boolean = false, loopedExpr: Boolean = false, elseBranch: Boolean = false, initializedStores: HashSet[Store])(implicit context: Context) {
+  def checkExpr(e: Expr, scope: ListBuffer[Store], lvalue: Boolean = false, loopedExpr: Boolean = false, elseBranch: Boolean = false, initializedStores: HashSet[Store])(implicit symbolTable: SymbolTable) {
     // TODO pass if is lvalue and looped expr to ckeckExpr sub calls?
     e match {
       case DyadicExpr(lhs, opr, rhs) =>
@@ -226,14 +206,14 @@ trait ContextChecker {
         // anonymous ident has to be unique
         if (scope.find(s => s.typedIdent.i == i).isDefined) throw DuplicateIdentException(i)
 
-        // check from and where expressions (they should not be able to access the anonymous store)
-        val fromType = returnType(from, scope); if (!fromType.matches(IntType)) throw TypeMismatchError(from, IntType, fromType);
-        val toType = returnType(to, scope); if (!toType.matches(IntType)) throw TypeMismatchError(to, IntType, toType);
-
         // add the anonymous identifier to the current scope for this test
         val anonymousStore = new Store(TypedIdent(i, IntType), Some(Copy), Some(Var), None);
         val tempScope = scope :+ anonymousStore;
         val tempInitialized = initializedStores + anonymousStore;
+
+        // check from and where expressions (they should not be able to access the anonymous store)
+        val fromType = returnType(from, tempScope); if (!fromType.matches(IntType)) throw TypeMismatchError(from, IntType, fromType);
+        val toType = returnType(to, tempScope); if (!toType.matches(IntType)) throw TypeMismatchError(to, IntType, toType);
 
         // check the return type
         checkExpr(ret, tempScope, lvalue, loopedExpr, elseBranch, tempInitialized)
@@ -243,7 +223,7 @@ trait ContextChecker {
         val whereType = returnType(where, tempScope); if (!whereType.matches(BoolType)) throw TypeMismatchError(where, BoolType, whereType);
       }
       case FunCallExpr(ident, tupleExpr) => {
-        context.globalMethodScope.get(ident) match {
+        symbolTable.routines.get(ident) match {
           case None => throw UndefinedMethodException(ident)
           case Some(decl) => {
             checkParameters(decl, tupleExpr, scope, loopedExpr, elseBranch, initializedStores);
@@ -276,12 +256,12 @@ trait ContextChecker {
   }
 
   // TODO this method is no more needed
-  def checkCpsCmd(cpsCmd: List[Cmd], scope: ListBuffer[Store], loopedCmd: Boolean = false, elseBranch: Boolean = false, initialized: HashSet[Store] = HashSet())(implicit context: Context) = cpsCmd.foreach(cmd => checkCmd(cmd, scope, loopedCmd, elseBranch, initialized))
+  def checkCpsCmd(cpsCmd: List[Cmd], scope: ListBuffer[Store], loopedCmd: Boolean = false, elseBranch: Boolean = false, initialized: HashSet[Store] = HashSet())(implicit context: SymbolTable) = cpsCmd.foreach(cmd => checkCmd(cmd, scope, loopedCmd, elseBranch, initialized))
 
-  def checkCmd(cmd: Cmd, scope: ListBuffer[Store], loopedCmd: Boolean = false, elseBranch: Boolean = false, initializedStores: HashSet[Store] = HashSet())(implicit context: Context) {
+  def checkCmd(cmd: Cmd, scope: ListBuffer[Store], loopedCmd: Boolean = false, elseBranch: Boolean = false, initializedStores: HashSet[Store] = HashSet())(implicit context: SymbolTable) {
     cmd match {
       case BecomesCmd(lhs, rhs) => {
-        
+
         // rhs must be checked before lhs due to the possibility of uninitialized stores
         checkExpr(rhs, scope, false, loopedCmd, elseBranch, initializedStores);
 
@@ -303,7 +283,7 @@ trait ContextChecker {
       }
       case SkipCmd() => {}
       case CallCmd(i, t) => {
-        context.globalMethodScope.get(i) match {
+        context.routines.get(i) match {
           case None => throw UndefinedMethodException(i)
           case Some(decl) => {
             checkParameters(decl, t, scope, loopedCmd, elseBranch, initializedStores);
@@ -343,7 +323,7 @@ trait ContextChecker {
     }
   }
 
-  def checkListLiteral(listLiteral: ListLiteral, scope: ListBuffer[Store], lvalue: Boolean = false, loopedExpr: Boolean = false, elseBranch: Boolean = false, initializedStores: HashSet[Store])(implicit context: Context) {
+  def checkListLiteral(listLiteral: ListLiteral, scope: ListBuffer[Store], lvalue: Boolean = false, loopedExpr: Boolean = false, elseBranch: Boolean = false, initializedStores: HashSet[Store])(implicit context: SymbolTable) {
     // first check if all expressions are valid
     listLiteral.l.foreach(e => {
       checkExpr(e, scope, lvalue, loopedExpr, elseBranch, initializedStores)
@@ -361,7 +341,7 @@ trait ContextChecker {
     })
   }
 
-  def checkParameters(decl: Decl, tupleExpr: TupleExpr, scope: ListBuffer[Store], looped: Boolean = false, elseBranch: Boolean = false, initialized: HashSet[Store])(implicit context: Context) {
+  def checkParameters(decl: Decl, tupleExpr: TupleExpr, scope: ListBuffer[Store], looped: Boolean = false, elseBranch: Boolean = false, initialized: HashSet[Store])(implicit context: SymbolTable) {
     decl match {
       case StoreDecl(_, i) => throw new CompilerException("internal compiler error");
       case FunDecl(identifier, params, r, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope, looped, elseBranch, initialized)
@@ -369,7 +349,7 @@ trait ContextChecker {
     }
   }
 
-  def checkMethodParameters(tupleExpr: TupleExpr, params: List[Parameter], scope: ListBuffer[Store], looped: Boolean = false, elseBranch: Boolean = false, initialized: HashSet[Store])(implicit context: Context) {
+  def checkMethodParameters(tupleExpr: TupleExpr, params: List[Parameter], scope: ListBuffer[Store], looped: Boolean = false, elseBranch: Boolean = false, initialized: HashSet[Store])(implicit context: SymbolTable) {
     if (tupleExpr.l.size != params.size) throw InvalidParamaterAmount(tupleExpr, params.size, tupleExpr.l.size);
 
     val o = tupleExpr.l.zip(params);
@@ -395,15 +375,15 @@ trait ContextChecker {
     })
   }
 
-  def loadGlobalCpsDecl(cpsDecl: List[Decl])(implicit context: Context) = {
+  def loadGlobalCpsDecl(cpsDecl: List[Decl])(implicit context: SymbolTable) = {
     // load store decls before methods
     cpsDecl.foreach(decl => {
       decl match {
         case StoreDecl(c, ti) => {
           // multiple vars with same name
-          if (context.globalStoreScope.find(s => s.typedIdent.i == ti.i).isDefined) throw DuplicateIdentException(ti.i)
+          if (context.globalStores.find(s => s.typedIdent.i == ti.i).isDefined) throw DuplicateIdentException(ti.i)
 
-          context.globalStoreScope += new Store(ti, None, Some(c), None);
+          context.globalStores += new Store(ti, None, Some(c), None);
         }
         case _ => // ignore
       }
@@ -425,14 +405,14 @@ trait ContextChecker {
     });
   }
 
-  def checkRoutines(cpsDecl: List[Decl])(implicit context: Context) = cpsDecl.foreach(decl => checkRoutine(decl))
-  def checkRoutine(decl: Decl)(implicit context: Context) {
+  def checkRoutines(cpsDecl: List[Decl])(implicit context: SymbolTable) = cpsDecl.foreach(decl => checkRoutine(decl))
+  def checkRoutine(decl: Decl)(implicit context: SymbolTable) {
     decl match {
       case FunDecl(identifier, params, ret, imports, cpsDecl, cmd) => {
-        
+
         val initialized = HashSet[Store]();
         checkCpsCmd(cmd, context.getLocalStoreScope(identifier), initialized = initialized);
-        
+
         if (initialized.find(s => s.typedIdent.i == ret.ti.i).isEmpty) throw StoreNotInitialized(ret.ti.i);
       }
       case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkCpsCmd(cmd, context.getLocalStoreScope(identifier));
@@ -441,11 +421,11 @@ trait ContextChecker {
     }
   }
 
-  def loadRoutineDecl(identifier: Ident, methodDecl: Decl, cpsDecl: List[Decl], paramList: List[Parameter], imports: List[GlobImport], cpsCmd: List[Cmd])(implicit context: Context) {
+  def loadRoutineDecl(identifier: Ident, methodDecl: Decl, cpsDecl: List[Decl], paramList: List[Parameter], imports: List[GlobImport], cpsCmd: List[Cmd])(implicit context: SymbolTable) {
     // multiple methods with same name
-    if (context.globalMethodScope.contains(identifier)) throw new DuplicateIdentException(identifier)
+    if (context.routines.contains(identifier)) throw new DuplicateIdentException(identifier)
 
-    context.globalMethodScope += (identifier -> methodDecl)
+    context.routines += (identifier -> methodDecl)
     val localScope = context.getLocalStoreScope(identifier);
 
     loadRoutineGlobals(imports, localScope);
@@ -453,11 +433,11 @@ trait ContextChecker {
     loadLocalCpsDecl(identifier, cpsDecl, localScope)
   }
 
-  def loadRoutineGlobals(imports: List[GlobImport], scope: ListBuffer[Store])(implicit context: Context) {
+  def loadRoutineGlobals(imports: List[GlobImport], scope: ListBuffer[Store])(implicit context: SymbolTable) {
     imports.foreach(imp => {
       if (scope.find(x => x.typedIdent.i == imp.i).isDefined) throw DuplicateIdentException(imp.i);
 
-      context.globalStoreScope.find(x => x.typedIdent.i == imp.i) match {
+      context.globalStores.find(x => x.typedIdent.i == imp.i) match {
         case None => throw NoGlobalStoreFound(imp.i);
         case Some(global) => {
           // get the type from the global store
@@ -476,12 +456,12 @@ trait ContextChecker {
   }
 
   // TODO almost the same as loadLocalParamDecl
-  def loadProgParams(params: List[ProgParameter])(implicit context: Context) {
+  def loadProgParams(params: List[ProgParameter])(implicit context: SymbolTable) {
     params.foreach(param => {
       // IN parameters are initialized by default (so no further initialization is allowed), OUT parameters need to be initialized (IML36)
       //      val initialized = param.f.forall(f => f == In || f == InOut) // TODO what todo with this information?
       val paramStore = new Store(param.ti, None, param.c, param.f);
-      if (context.globalStoreScope.find(s => s.typedIdent.i == param.ti.i).isEmpty) context.globalStoreScope += paramStore; else throw new DuplicateIdentException(param.ti.i);
+      if (context.globalStores.find(s => s.typedIdent.i == param.ti.i).isEmpty) context.globalStores += paramStore; else throw new DuplicateIdentException(param.ti.i);
     })
   }
 
@@ -514,5 +494,29 @@ trait ContextChecker {
       case _ => throw InvalidDeclException(decl);
     }
   }
+
+}
+
+class CompilerException(v: String) extends RuntimeException(v) {
+  def this(n: ASTNode) = this(n.pos.longString)
+}
+
+case class Store(val typedIdent: TypedIdent, val mech: Option[MechMode], val change: Option[ChangeMode], val flow: Option[FlowMode])
+
+// TODO use this instead of listbuffer
+case class Scope(val stores:ListBuffer[Store] = ListBuffer()) {
+  def get(s:String) = stores.find(_.typedIdent.i.value == s).get
+  
+}
+case class SymbolTable {
+  val globalStores = ListBuffer[Store]();
+  val localStores = HashMap[Ident, ListBuffer[Store]]();
+  val routines = HashMap[Ident, Decl]();
+
+  // TODO create methods for enterLoop() enterBranch() enterRoutine() this would reduce parameters a lot!
+  // but well this is not really functional!!!
+
+  def getLocalStoreScope(s: Ident): ListBuffer[Store] = return localStores.getOrElseUpdate(s, ListBuffer[Store]())
+  def getLocalStoreScope(s: String): ListBuffer[Store] = return localStores.getOrElseUpdate(Ident(s), ListBuffer[Store]())
 
 }

@@ -1,0 +1,9 @@
+program simpleoutput() 
+global 
+ var l:int
+do 
+ l init := 3;
+ l := l + l * l;
+ debugout l
+ //debugout (((1+3) * 4) + 1) + 2
+endprogram

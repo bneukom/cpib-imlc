@@ -8,10 +8,11 @@ import ch.fhnw.imlcompiler.transforming.ASTTransformers
 import ch.fhnw.codegen.JVMByteCodeGen
 
 // TODO what are default modes?
-object Compiler extends IMLParsers with ContextChecker with ASTTransformers with JVMByteCodeGen {
+// TODO implement commandline interface
+object ImlCompiler extends IMLParsers with ContextChecker with ASTTransformers with JVMByteCodeGen {
 
   def main(args: Array[String]) {
-    val file = scala.io.Source.fromFile("programs/listcomprehensions2.iml")
+    val file = scala.io.Source.fromFile("programs/simpleoutput.iml")
     val imlcode = file.mkString
     file.close()
 
@@ -19,21 +20,22 @@ object Compiler extends IMLParsers with ContextChecker with ASTTransformers with
       // parse
       val program = parse(imlcode)
       println("Parse Successful:")
-      println(program.treeString)
+      println(program)
       println()
 
       // context check
-      val context = contextCheck(program);
-      println("Context Checking Successful\n")
-
-      // code transformations (for example list expressions)
-      val transformed = transform(program, context);
-      println("AST Transformed\n")
-      println(transformed.treeString)
+      val symbolTable = contextCheck(program);
+      println("Context Checking Successful")
       println()
 
-      // generate appropriate code
-      generateCode(transformed);
+      // code transformations (for example list expressions)
+      val transformed = transform(program, symbolTable);
+      println("AST Transformed\n")
+      println((transformed))
+      println()
+
+      // generate jvm byte code
+      writeCode(transformed, symbolTable);
       println("Byte Code Sucessfully Generated");
 
     } catch {

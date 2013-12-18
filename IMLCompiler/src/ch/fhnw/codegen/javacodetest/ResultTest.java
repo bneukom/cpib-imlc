@@ -1,4 +1,4 @@
-package ch.fhnw.imlcompiler.transforming;
+package ch.fhnw.codegen.javacodetest;
 
 import java.util.Arrays;
 

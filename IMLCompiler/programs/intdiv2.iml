@@ -1,26 +1,14 @@
-program intDiv(in const m:int, in const n:int, out const q:int, out const r:int)
+program intDiv(in const m:int32, in const n:int32, out const q:int32, out const r:int32)
 global
- proc divide(in copy const m:int, in copy const n:int, out ref var q:int, out ref var r:int) 
- do
-  q init := 0;
-  r init := m;
-  
-  if true do
-   skip
-  else
-   skip
-  endif;
-  
-  while r >= n do
-   if false || true do
-   else 
-   endif;
-   q := q + 1;
-   r := r - n
-  endwhile
- endproc;
- 
- var b:bool;
+proc divide(in copy const m:int32, in copy const n:int32, out ref var q:int32, out ref var r:int32)
 do
-  call divide(m, n, q init, r init)
+ q init := 0;
+ r init := m;
+ while r >= n do
+  q := q + 1;
+  r := r - n
+ endwhile
+endproc
+do
+ call divide(m, n, q init, r init)
 endprogram

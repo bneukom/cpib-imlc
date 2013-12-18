@@ -10,7 +10,7 @@ object AST {
 
   class ASTNode extends Positional
 
-  case class Program(params: List[ProgParameter], cpsDecl: List[Decl], commands: List[Cmd]) extends ASTNode
+  case class Program(name:Ident, params: List[ProgParameter], cpsDecl: List[Decl], commands: List[Cmd]) extends ASTNode
 
   case class TypedIdent(i: Ident, t: Type) extends ASTNode
 
@@ -96,7 +96,7 @@ object AST {
       }
   }
 
-  sealed class AtomType extends Type { override def matches(other: Type) = other == this || other == Any }
+  abstract sealed class AtomType extends Type { override def matches(other: Type) = other == this || other == Any }
   case object IntType extends AtomType { override def toString() = "int" }
   case object BoolType extends AtomType { override def toString() = "bool" }
 

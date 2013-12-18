@@ -10,7 +10,7 @@ trait IMLParsers extends RegexParsers {
   // from: http://stackoverflow.com/questions/5952720/ignoring-c-style-comments-in-a-scala-combinator-parser
   protected override val whiteSpace = """(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""".r
 
-  def program: Parser[Program] = positioned("program" ~ ident ~ progParamList ~ opt("global" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endprogram" ^^ { case "program" ~ id ~ progParamList ~ cpsdecl ~ "do" ~ cmd ~ "endprogram" => Program(progParamList, cpsdecl.getOrElse(Nil), cmd) })
+  def program: Parser[Program] = positioned("program" ~ ident ~ progParamList ~ opt("global" ~> cpsDecl) ~ "do" ~ cpsCmd ~ "endprogram" ^^ { case "program" ~ name ~ progParamList ~ cpsdecl ~ "do" ~ cmd ~ "endprogram" => Program(name, progParamList, cpsdecl.getOrElse(Nil), cmd) })
 
   def typeparser: Parser[Type] = positioned(atomtype | listType)
   def atomtype: Parser[AtomType] = positioned("int" ^^^ { IntType } | "bool" ^^^ { BoolType })
@@ -23,8 +23,8 @@ trait IMLParsers extends RegexParsers {
   def ifCmd: Parser[IfCmd] = positioned("if" ~ expr ~ "do" ~ cpsCmd ~ "else" ~ cpsCmd ~ "endif" ^^ { case "if" ~ expr ~ "do" ~ c1 ~ "else" ~ c2 ~ "endif" => IfCmd(expr, c1, c2) })
   def whileCmd: Parser[WhileCmd] = positioned("while" ~ expr ~ "do" ~ cpsCmd ~ "endwhile" ^^ { case "while" ~ t1 ~ "do" ~ c ~ "endwhile" => WhileCmd(t1, c) })
   def callCmd: Parser[CallCmd] = positioned("call" ~ ident ~ tupleExpr ^^ { case "call" ~ i ~ t => CallCmd(i, t) }) // TODO globinits optional
-  def inputCmd: Parser[InputCmd] = positioned("input" ~> expr ^^ { case e => InputCmd(e) })
-  def outputCmd: Parser[OutputCmd] = positioned("output" ~> expr ^^ { case e => OutputCmd(e) })
+  def inputCmd: Parser[InputCmd] = positioned("debugin" ~> expr ^^ { case e => InputCmd(e) })
+  def outputCmd: Parser[OutputCmd] = positioned("debugout" ~> expr ^^ { case e => OutputCmd(e) })
 
   def cpsCmd: Parser[List[Cmd]] = rep1sep(cmd, ";")
 
