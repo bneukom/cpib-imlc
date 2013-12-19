@@ -11,6 +11,7 @@ import ch.fhnw.imlcompiler.Store
 import ch.fhnw.imlcompiler.ContextChecker
 import org.objectweb.asm.Label
 import ch.fhnw.imlcompiler.Scope
+import scala.reflect.ClassTag
 
 trait JVMByteCodeGen extends ContextChecker {
 
@@ -39,6 +40,7 @@ trait JVMByteCodeGen extends ContextChecker {
       case c: BecomesCmd => writeBecomesCmd(c, mv, scope, localAccess);
       case c: OutputCmd => writeOutputCmd(c, mv, scope, localAccess);
       case c: IfCmd => writeIfCmd(c, mv, scope, localAccess)
+      case c: SkipCmd => mv.visitInsn(NOP)
     }
   }
 
@@ -74,9 +76,30 @@ trait JVMByteCodeGen extends ContextChecker {
   }
 
   def writeOutputCmd(o: OutputCmd, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) = {
-    mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-    writeExpr(o.expr, mv, scope, localAccess)
-    mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(" + toJVMType(returnType(o.expr, scope)(context.st)) + ")V");
+
+    val retType = returnType(o.expr, scope)(context.st);
+    retType match {
+      case l: ListType => {
+        val level = listLevel(l)
+        if (level > 1) {
+          mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+          writeExpr(o.expr, mv, scope, localAccess)
+          mv.visitMethodInsn(INVOKESTATIC, "java/util/Arrays", "deepToString", "([Ljava/lang/Object;)Ljava/lang/String;");
+          mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V");
+        } else {
+          mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+          writeExpr(o.expr, mv, scope, localAccess)
+          mv.visitMethodInsn(INVOKESTATIC, "java/util/Arrays", "toString", "([I)Ljava/lang/String;");
+          mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V");
+        }
+      }
+      case _ => {
+        mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+        writeExpr(o.expr, mv, scope, localAccess)
+        mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(" + toJVMType(returnType(o.expr, scope)(context.st)) + ")V");
+      }
+    }
+
   }
 
   //  def writeExprs(exprs: List[Expr], mv: MethodVisitor, scope: ListBuffer[Store], localAccess: Boolean = false)(implicit context: CodeGenContext) = exprs.foreach(writeExpr(_, mv, scope, localAccess))
@@ -84,6 +107,7 @@ trait JVMByteCodeGen extends ContextChecker {
     expr match {
       case e: StoreExpr => writeStoreAccess(e, mv, scope, localAccess)
       case d: DyadicExpr => writeDyadicExpr(d, mv, scope, localAccess)
+      case m: MonadicExpr => writeMonadicExpr(m, mv, scope, localAccess)
       case l: LiteralExpr => writeLiteralExpr(l, mv, scope, localAccess)
     }
   }
@@ -99,8 +123,6 @@ trait JVMByteCodeGen extends ContextChecker {
 
   def writeDyadicExpr(dyadicExpr: DyadicExpr, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) {
 
-    writeExpr(dyadicExpr.r, mv, scope, localAccess)
-
     dyadicExpr.op match {
       case PlusOpr =>
         writeExpr(dyadicExpr.l, mv, scope, localAccess); writeExpr(dyadicExpr.r, mv, scope, localAccess); mv.visitInsn(IADD)
@@ -115,25 +137,61 @@ trait JVMByteCodeGen extends ContextChecker {
     }
   }
 
+  def writeMonadicExpr(monadicExpr: MonadicExpr, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) {
+    monadicExpr.op match {
+      case LengthOpr => writeExpr(monadicExpr.l, mv, scope, localAccess); mv.visitInsn(ARRAYLENGTH);
+      case HeadOpr => {
+        writeExpr(monadicExpr.l, mv, scope, localAccess);
+        mv.visitInsn(ICONST_0);
+
+        val listType = returnType(monadicExpr.l, scope)(context.st);
+        val level = listLevel(listType);
+
+        if (level > 1) {
+          mv.visitInsn(AALOAD);
+        } else {
+          deepType(listType) match {
+            case IntType => mv.visitInsn(IALOAD);
+            case BoolType => mv.visitInsn(BALOAD);
+            case _ => throw new IllegalStateException
+          }
+        }
+      }
+    }
+  }
+
   def writeLiteralExpr(l: LiteralExpr, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) {
     l.l match {
       case BoolLiteral(b) =>
         mv.visitIntInsn(BIPUSH, if (b) 1 else 0)
       case IntLiteral(v) =>
-        mv.visitIntInsn(SIPUSH, v)
+        mv.visitLdcInsn(new Integer(v));
       case l: ListLiteral => {
-        val lType = returnType(l, scope)(context.st);
-        
-        lType match {
-          case l:ListType => {
-            val depth = l.listLevel(l, 0)
-            val dType = deepType(lType);
-          }
-          case _ => throw new IllegalStateException
+
+        mv.visitIntInsn(BIPUSH, l.l.size) // write array length
+
+        val vmType = toJVMType(returnType(l, scope)(context.st));
+        vmType match {
+          case "[I" => mv.visitIntInsn(NEWARRAY, T_INT);
+          case "[Z" => mv.visitIntInsn(NEWARRAY, T_BOOLEAN);
+          case _ => mv.visitTypeInsn(ANEWARRAY, vmType.substring(1)); // type of array must be [I for a list of [[I
         }
-        
-        
-        println(lType)
+
+        l.l.zipWithIndex.foreach {
+          case (e, i) =>
+            mv.visitInsn(DUP);
+            mv.visitIntInsn(BIPUSH, i);
+
+            writeExpr(e, mv, scope, localAccess)
+
+            val vmType = toJVMType(returnType(e, scope)(context.st));
+
+            vmType match {
+              case "I" | "B" => mv.visitInsn(IASTORE);
+              case _ => mv.visitInsn(AASTORE);
+            }
+
+        }
       }
     }
 

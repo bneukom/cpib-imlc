@@ -12,10 +12,12 @@ import ch.fhnw.codegen.JVMByteCodeGen
 object ImlCompiler extends IMLParsers with ContextChecker with ASTTransformers with JVMByteCodeGen {
 
   def main(args: Array[String]) {
-    val file = scala.io.Source.fromFile("programs/simpleoutput.iml")
+    val file = scala.io.Source.fromFile("programs/aacodegentest.iml")
     val imlcode = file.mkString
     file.close()
 
+    
+    
     try {
       // parse
       val program = parse(imlcode)

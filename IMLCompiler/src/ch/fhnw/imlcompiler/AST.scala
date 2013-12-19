@@ -83,13 +83,13 @@ object AST {
       }
     }
 
-    def listLevel(l: Type, level: Int = 0): Int =
+    private def listLevel(l: Type, level: Int = 0): Int =
       l match {
         case ListType(i) => return listLevel(i, level + 1);
         case _ => level
       }
 
-    def deepType(l: Type): Type =
+    private def deepType(l: Type): Type =
       l match {
         case ListType(i) => return deepType(i)
         case _ => l

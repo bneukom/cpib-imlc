@@ -125,6 +125,12 @@ trait ContextChecker {
     if (!sorted.isEmpty) sorted.head else (ListType(Any), depth);
   }
 
+  def listLevel(l: Type, level: Int = 0): Int =
+    l match {
+      case ListType(i) => return listLevel(i, level + 1);
+      case _ => level
+    }
+
   def deepType(l: Type): Type = {
     l match {
       case ListType(i) => return deepType(i)
