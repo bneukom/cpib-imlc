@@ -9,6 +9,7 @@ import ch.fhnw.imlcompiler.AST._
 import scala.collection.mutable.HashSet
 import scala.annotation.tailrec
 
+// TODO debugout l init should not be possible!
 trait ContextChecker {
 
   // TODO do not use exceptions but rather a CheckResult which is either a CheckError or a IMLContext (which is then used by the code generator)

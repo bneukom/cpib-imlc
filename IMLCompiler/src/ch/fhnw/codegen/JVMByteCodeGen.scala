@@ -18,9 +18,11 @@ trait JVMByteCodeGen extends ContextChecker {
 
   class CodeGenContext(val cw: ClassWriter, val prog: Program, val st: SymbolTable)
 
+  final val TMP_OBJ = "_tmp";
+  final val TMP_OBJ2 = "_tmp2";
+
   def writeCode(prog: Program, st: SymbolTable) = {
     val classWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-
     val context = new CodeGenContext(classWriter, prog, st);
 
     classWriter.visitSource(prog.name.value, null);
@@ -29,6 +31,8 @@ trait JVMByteCodeGen extends ContextChecker {
     writeClass()(context)
     writeConstructor()(context)
     writeMainProgramm()(context)
+    writeDeepCopy()(context)
+    writeCons()(context)
 
     val fileWriter = new FileOutputStream(prog.name.value + ".class")
     fileWriter.write(classWriter.toByteArray())
@@ -129,7 +133,7 @@ trait JVMByteCodeGen extends ContextChecker {
       case EQ =>
         writeExpr(dyadicExpr.l, mv, scope, localAccess); writeExpr(dyadicExpr.r, mv, scope, localAccess); writeCheckEquals(mv);
       case ConsOpr =>
-        writeExpr(dyadicExpr.r, mv, scope, localAccess); writeExpr(dyadicExpr.l, mv, scope, localAccess); writeListCons(mv);
+        writeListCons(dyadicExpr, mv, scope, localAccess);
     }
   }
 
@@ -205,6 +209,163 @@ trait JVMByteCodeGen extends ContextChecker {
 
   def writeClass()(implicit context: CodeGenContext) {
     context.cw.visit(V1_7, ACC_PUBLIC + ACC_SUPER, context.prog.name.value, null, "java/lang/Object", null);
+
+    context.cw.visitField(ACC_PRIVATE + ACC_STATIC, TMP_OBJ, "Ljava/lang/Object;", null, null)
+    context.cw.visitField(ACC_PRIVATE + ACC_STATIC, TMP_OBJ2, "Ljava/lang/Object;", null, null)
+  }
+
+  def writeCons()(implicit context: CodeGenContext) {
+    val mv = context.cw.visitMethod(ACC_PRIVATE + ACC_STATIC, "cons", "([Ljava/lang/Object;)[Ljava/lang/Object;", null, null);
+    mv.visitCode();
+    val l0 = new Label();
+    mv.visitLabel(l0);
+    mv.visitVarInsn(ALOAD, 0);
+    mv.visitInsn(ARRAYLENGTH);
+    mv.visitInsn(ICONST_1);
+    mv.visitInsn(IADD);
+    mv.visitTypeInsn(ANEWARRAY, "java/lang/Object");
+    mv.visitVarInsn(ASTORE, 1);
+    val l1 = new Label();
+    mv.visitLabel(l1);
+    mv.visitInsn(ICONST_0);
+    mv.visitVarInsn(ISTORE, 2);
+    val l2 = new Label();
+    mv.visitLabel(l2);
+    val l3 = new Label();
+    mv.visitJumpInsn(GOTO, l3);
+    val l4 = new Label();
+    mv.visitLabel(l4);
+    mv.visitVarInsn(ALOAD, 0);
+    mv.visitVarInsn(ILOAD, 2);
+    mv.visitInsn(AALOAD);
+    mv.visitVarInsn(ASTORE, 3);
+    val l5 = new Label();
+    mv.visitLabel(l5);
+    mv.visitVarInsn(ALOAD, 3);
+    mv.visitTypeInsn(INSTANCEOF, "[Ljava/lang/Object;");
+    val l6 = new Label();
+    mv.visitJumpInsn(IFEQ, l6);
+    val l7 = new Label();
+    mv.visitLabel(l7);
+    mv.visitVarInsn(ALOAD, 1);
+    mv.visitVarInsn(ILOAD, 2);
+    mv.visitInsn(ICONST_1);
+    mv.visitInsn(IADD);
+    mv.visitVarInsn(ALOAD, 3);
+    mv.visitMethodInsn(INVOKESTATIC, "ch/fhnw/codegen/javacodetest/ResultTest", "deepCopy", "(Ljava/lang/Object;)Ljava/lang/Object;");
+    mv.visitInsn(AASTORE);
+    val l8 = new Label();
+    mv.visitJumpInsn(GOTO, l8);
+    mv.visitLabel(l6);
+    mv.visitVarInsn(ALOAD, 1);
+    mv.visitVarInsn(ILOAD, 2);
+    mv.visitInsn(ICONST_1);
+    mv.visitInsn(IADD);
+    mv.visitVarInsn(ALOAD, 3);
+    mv.visitInsn(AASTORE);
+    mv.visitLabel(l8);
+    mv.visitFrame(F_CHOP, 1, null, 0, null);
+    mv.visitIincInsn(2, 1);
+    mv.visitLabel(l3);
+    mv.visitFrame(F_SAME, 0, null, 0, null);
+    mv.visitVarInsn(ILOAD, 2);
+    mv.visitVarInsn(ALOAD, 0);
+    mv.visitInsn(ARRAYLENGTH);
+    mv.visitJumpInsn(IF_ICMPLT, l4);
+    val l9 = new Label();
+    mv.visitLabel(l9);
+    mv.visitVarInsn(ALOAD, 1);
+    mv.visitInsn(ARETURN);
+    val l10 = new Label();
+    mv.visitLabel(l10);
+    mv.visitLocalVariable("o", "[Ljava/lang/Object;", null, l0, l10, 0);
+    mv.visitLocalVariable("result", "[Ljava/lang/Object;", null, l1, l10, 1);
+    mv.visitLocalVariable("i", "I", null, l2, l9, 2);
+    mv.visitLocalVariable("object", "Ljava/lang/Object;", null, l5, l8, 3);
+    mv.visitMaxs(3, 4);
+    mv.visitEnd();
+  }
+
+  def writeDeepCopy()(implicit context: CodeGenContext) {
+    val mv = context.cw.visitMethod(ACC_PRIVATE + ACC_STATIC, "deepCopy", "(Ljava/lang/Object;)Ljava/lang/Object;", null, null);
+    mv.visitCode();
+    def l0 = new Label();
+    mv.visitLabel(l0);
+    mv.visitVarInsn(ALOAD, 0);
+    mv.visitTypeInsn(INSTANCEOF, "[Ljava/lang/Object;");
+    val l1 = new Label();
+    mv.visitJumpInsn(IFEQ, l1);
+    val l2 = new Label();
+    mv.visitLabel(l2);
+    mv.visitVarInsn(ALOAD, 0);
+    mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
+    mv.visitVarInsn(ASTORE, 1);
+    val l3 = new Label();
+    mv.visitLabel(l3);
+    mv.visitVarInsn(ALOAD, 1);
+    mv.visitInsn(ARRAYLENGTH);
+    mv.visitTypeInsn(ANEWARRAY, "java/lang/Object");
+    mv.visitVarInsn(ASTORE, 2);
+    val l4 = new Label();
+    mv.visitLabel(l4);
+    mv.visitInsn(ICONST_0);
+    mv.visitVarInsn(ISTORE, 3);
+    val l5 = new Label();
+    mv.visitLabel(l5);
+    val l6 = new Label();
+    mv.visitJumpInsn(GOTO, l6);
+    val l7 = new Label();
+    mv.visitLabel(l7);
+    mv.visitVarInsn(ALOAD, 1);
+    mv.visitVarInsn(ILOAD, 3);
+    mv.visitInsn(AALOAD);
+    mv.visitVarInsn(ASTORE, 4);
+    val l8 = new Label();
+    mv.visitLabel(l8);
+    mv.visitVarInsn(ALOAD, 4);
+    mv.visitTypeInsn(INSTANCEOF, "[Ljava/lang/Object;");
+    val l9 = new Label();
+    mv.visitJumpInsn(IFEQ, l9);
+    val l10 = new Label();
+    mv.visitLabel(l10);
+    mv.visitVarInsn(ALOAD, 2);
+    mv.visitVarInsn(ILOAD, 3);
+    mv.visitVarInsn(ALOAD, 4);
+    mv.visitMethodInsn(INVOKESTATIC, "ch/fhnw/codegen/javacodetest/ResultTest", "deepCopy", "(Ljava/lang/Object;)Ljava/lang/Object;");
+    mv.visitInsn(AASTORE);
+    val l11 = new Label();
+    mv.visitJumpInsn(GOTO, l11);
+    mv.visitLabel(l9);
+    mv.visitVarInsn(ALOAD, 2);
+    mv.visitVarInsn(ILOAD, 3);
+    mv.visitVarInsn(ALOAD, 4);
+    mv.visitInsn(AASTORE);
+    mv.visitLabel(l11);
+    mv.visitFrame(F_CHOP, 1, null, 0, null);
+    mv.visitIincInsn(3, 1);
+    mv.visitLabel(l6);
+    mv.visitFrame(F_SAME, 0, null, 0, null);
+    mv.visitVarInsn(ILOAD, 3);
+    mv.visitVarInsn(ALOAD, 1);
+    mv.visitInsn(ARRAYLENGTH);
+    mv.visitJumpInsn(IF_ICMPLT, l7);
+    val l12 = new Label();
+    mv.visitLabel(l12);
+    mv.visitVarInsn(ALOAD, 2);
+    mv.visitInsn(ARETURN);
+    mv.visitLabel(l1);
+    mv.visitFrame(F_CHOP, 3, null, 0, null);
+    mv.visitVarInsn(ALOAD, 0);
+    mv.visitInsn(ARETURN);
+    val l13 = new Label();
+    mv.visitLabel(l13);
+    mv.visitLocalVariable("o", "Ljava/lang/Object;", null, l0, l13, 0);
+    mv.visitLocalVariable("l", "[Ljava/lang/Object;", null, l3, l1, 1);
+    mv.visitLocalVariable("result", "[Ljava/lang/Object;", null, l4, l1, 2);
+    mv.visitLocalVariable("i", "I", null, l5, l12, 3);
+    mv.visitLocalVariable("object", "Ljava/lang/Object;", null, l8, l11, 4);
+    mv.visitMaxs(3, 5);
+    mv.visitEnd();
   }
 
   def writeConstructor()(implicit context: CodeGenContext) {
@@ -227,8 +388,66 @@ trait JVMByteCodeGen extends ContextChecker {
     main.visitEnd();
   }
 
-  def writeListCons(mv: MethodVisitor)(implicit scope: CodeGenContext) {
+  def writeListCons(dyadicExpr: DyadicExpr, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) {
 
+    writeExpr(dyadicExpr.r, mv, scope, localAccess);
+    mv.visitMethodInsn(INVOKESTATIC, context.prog.name.value, "cons", "([Ljava/lang/Object;)[Ljava/lang/Object;");
+    mv.visitInsn(DUP)
+    
+    mv.visitInsn(ICONST_0);
+
+    writeExpr(dyadicExpr.l, mv, scope, localAccess);
+
+    val lType = returnType(dyadicExpr.l, scope)(context.st);
+    lType match {
+      case IntType => mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;");
+      case _ => // TODO impl
+    }
+
+    mv.visitInsn(AASTORE);
+
+    //    // ref of array is on stack
+    //    writeExpr(dyadicExpr.r, mv, scope, localAccess);
+    //    mv.visitFieldInsn(PUTSTATIC, context.prog.name.value, TMP_OBJ, "Ljava/lang/Object;");
+    //
+    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ, "Ljava/lang/Object;");
+    //    mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
+    //    mv.visitInsn(ARRAYLENGTH);
+    //    mv.visitInsn(ICONST_1)
+    //    mv.visitInsn(IADD)
+    //
+    //    val rType = returnType(dyadicExpr.r, scope)(context.st);
+    //    val arrType = ("[" * (listLevel(rType) - 1)) + "Ljava/lang/Object;";
+    //    mv.visitTypeInsn(ANEWARRAY, arrType);
+    //    mv.visitFieldInsn(PUTSTATIC, context.prog.name.value, TMP_OBJ2, "Ljava/lang/Object;");
+    //
+    //    // copy
+    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ, "Ljava/lang/Object;");
+    //    mv.visitInsn(ICONST_0);
+    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ2, "Ljava/lang/Object;");
+    //    mv.visitInsn(ICONST_1);
+    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ, "Ljava/lang/Object;");
+    //    mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
+    //    mv.visitInsn(ARRAYLENGTH);
+    //    mv.visitMethodInsn(INVOKESTATIC, "java/lang/System", "arraycopy", "(Ljava/lang/Object;ILjava/lang/Object;II)V");
+    //
+    //    // store lhs into first element
+    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ2, "Ljava/lang/Object;");
+    //    mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
+    //    mv.visitInsn(ICONST_0);
+    //    writeExpr(dyadicExpr.l, mv, scope, localAccess);
+    //
+    //    val lType = returnType(dyadicExpr.l, scope)(context.st);
+    //    lType match {
+    //      case IntType => mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;");
+    //      case _ => // TODO impl
+    //    }
+    //
+    //    mv.visitInsn(AASTORE);
+    //
+    //    // put ref of new array on top
+    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ2, "Ljava/lang/Object;");
+    //    mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
   }
 
   def writeCheckNotEquals(mv: MethodVisitor)(implicit scope: CodeGenContext) {
@@ -261,4 +480,5 @@ trait JVMByteCodeGen extends ContextChecker {
     //    case ListType(t) => "[" + toJVMType(t)
     //    case Any => throw new IllegalStateException
   }
+
 }

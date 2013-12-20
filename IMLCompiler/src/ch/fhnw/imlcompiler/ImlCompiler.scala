@@ -16,8 +16,6 @@ object ImlCompiler extends IMLParsers with ContextChecker with ASTTransformers w
     val imlcode = file.mkString
     file.close()
 
-    
-    
     try {
       // parse
       val program = parse(imlcode)
