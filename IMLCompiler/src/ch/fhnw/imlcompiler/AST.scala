@@ -140,7 +140,7 @@ object AST {
   case object LengthOpr extends MonadicListOpr { override def toString() = "length" }
 
   abstract sealed class DyadicListOpr extends Opr with DyadicOpr
-  case object ConcatOpr extends DyadicListOpr { override def toString() = "::" }
+  case object ConsOpr extends DyadicListOpr { override def toString() = "::" }
 
   def main(args: Array[String]) {
     val l1 = ListType(ListType(ListType(IntType)))

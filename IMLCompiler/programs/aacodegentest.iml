@@ -1,10 +1,7 @@
 program aacodegentest() 
 global 
- var l:[int];
- var x:int
+ var l:[int]
 do 
- l init := [500, 600];
- debugout l;
- x init := 100;
- debugout x * x
+ l2 init := 1 :: [];
+ debugout head head head l2 * 100
 endprogram

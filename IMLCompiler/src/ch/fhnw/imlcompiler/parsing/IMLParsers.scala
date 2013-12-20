@@ -34,7 +34,7 @@ trait IMLParsers extends RegexParsers {
   def relOpr: Parser[RelOpr] = positioned("==" ^^^ { EQ } | "!=" ^^^ { NE } | "<=" ^^^ { LE } | ">=" ^^^ { GE } | ">" ^^^ { GT } | "<" ^^^ { LT })
   def addOpr: Parser[AddOpr] = positioned("-" ^^^ { MinusOpr } | "+" ^^^ { PlusOpr })
   def listOpr: Parser[MonadicListOpr] = positioned("head" ^^^ { HeadOpr } | "tail" ^^^ { TailOpr } | "length" ^^^ { LengthOpr })
-  def concatOpr: Parser[DyadicListOpr] = positioned("::" ^^^ { ConcatOpr })
+  def concatOpr: Parser[DyadicListOpr] = positioned("::" ^^^ { ConsOpr })
 
   def ident: Parser[Ident] = positioned(raw"[A-Za-z]+[A-Za-z0-9]*".r.withFilter(!AST.keywords.contains(_)).withFailureMessage("identifier expected") ^^ { x => Ident(x.toString()) })
 
@@ -55,7 +55,7 @@ trait IMLParsers extends RegexParsers {
   def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | listExpr | "(" ~> expr <~ ")")
 
   //  def expr: Parser[Expr] = positioned(term0 ~ rep(concatOpr ~> term0) ^^ { case x ~ l => l.foldRight(x)((x, y) => DyadicExpr(x, ConcatOpr, y)) })
-  def expr: Parser[Expr] = positioned(rep1sep(term0, concatOpr) ^^ { case l => l.take(l.size - 1).foldRight(l.last)((x, y) => DyadicExpr(x, ConcatOpr, y)) })
+  def expr: Parser[Expr] = positioned(rep1sep(term0, concatOpr) ^^ { case l => l.take(l.size - 1).foldRight(l.last)((x, y) => DyadicExpr(x, ConsOpr, y)) })
   def term0: Parser[Expr] = positioned(term1 * (boolOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) })) // * will produce a left associative function
   def term1: Parser[Expr] = positioned(term2 ~ relOpr ~ term2 ^^ { case x1 ~ o ~ x2 => DyadicExpr(x1, o, x2) } | term2 ^^ { case term2 => term2 }) // the | models [optional] (so still LL1 compatible)
   def term2: Parser[Expr] = positioned(term3 * (addOpr ^^ { case op => DyadicExpr(_: Expr, op, _: Expr) }))

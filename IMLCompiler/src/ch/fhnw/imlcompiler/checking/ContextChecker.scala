@@ -47,7 +47,7 @@ trait ContextChecker {
     val lhsType = returnType(lhs, scope);
     val rhsType = returnType(rhs, scope)
     o match {
-      case ConcatOpr => {
+      case ConsOpr => {
         rhsType match {
           case ListType(t) => if (!t.matches(lhsType)) throw TypeMismatchError(lhs, t, lhsType)
           case _ => throw TypeMismatchError(rhs, ListType(lhsType), rhsType)
@@ -144,7 +144,7 @@ trait ContextChecker {
       case DivOpr | TimesOpr | ModOpr => IntType
       case EQ | NE | GT | LT | GE | LE => BoolType
       case Cand | Cor => BoolType
-      case ConcatOpr => ListType(returnType(lhs, scope))
+      case ConsOpr => ListType(returnType(lhs, scope))
     }
   }
 

@@ -46,7 +46,6 @@ public class ResultTest {
 
 		// list := 0 :: list;
 		tmp = list;
-		tmp2 = list;
 		list = new int[list.length + 1];
 		System.arraycopy(tmp, 0, list, 1, ((int[]) tmp).length);
 		list[0] = 0;

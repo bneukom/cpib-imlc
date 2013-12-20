@@ -109,7 +109,7 @@ trait ASTTransformers {
     val countInitCmd = BecomesCmd(StoreExpr(countIdent, true), lexpr.to)
     val listInitCmd = BecomesCmd(StoreExpr(listIdent, true), LiteralExpr(ListLiteral(List())))
 
-    val appenderCmd = BecomesCmd(StoreExpr(listIdent, false), DyadicExpr(lexpr.output, ConcatOpr, StoreExpr(listIdent, false)))
+    val appenderCmd = BecomesCmd(StoreExpr(listIdent, false), DyadicExpr(lexpr.output, ConsOpr, StoreExpr(listIdent, false)))
 
     val whereCmd = IfCmd(lexpr.predicate, appenderCmd :: Nil, SkipCmd() :: Nil)
 
