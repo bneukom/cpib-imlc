@@ -39,7 +39,7 @@ trait ContextChecker {
 
     // check all defined methods and the main program for possible errors (type, flow, initialized, etc.)
     checkRoutines(prog.cpsDecl)(symbolTable);
-    checkCpsCmd(prog.commands, symbolTable.globalStores)(symbolTable);
+    checkCpsCmd(prog.commands, symbolTable.globalScope)(symbolTable);
 
     return symbolTable;
   }
@@ -389,9 +389,9 @@ trait ContextChecker {
       decl match {
         case StoreDecl(c, ti) => {
           // multiple vars with same name
-          if (context.globalStores.find(s => s.typedIdent.i == ti.i).isDefined) throw DuplicateIdentException(ti.i)
+          if (context.globalScope.find(s => s.typedIdent.i == ti.i).isDefined) throw DuplicateIdentException(ti.i)
 
-          context.globalStores += new Store(ti, None, Some(c), None);
+          context.globalScope += new Store(ti, None, Some(c), None);
         }
         case _ => // ignore
       }
@@ -436,27 +436,22 @@ trait ContextChecker {
     symbolTable.routines += (identifier -> methodDecl)
     val localScope = symbolTable.getLocalStoreScope(identifier);
 
-    loadRoutineGlobals(imports, localScope);
+    loadRoutineGlobalImports(imports, localScope);
     loadLocalParams(paramList, localScope)
     loadLocalCpsDecl(identifier, cpsDecl, localScope)
   }
 
-  def loadRoutineGlobals(imports: List[GlobImport], scope: Scope)(implicit context: SymbolTable) {
+  def loadRoutineGlobalImports(imports: List[GlobImport], scope: Scope)(implicit context: SymbolTable) {
     imports.foreach(imp => {
       if (scope.exists(imp.i)) throw DuplicateIdentException(imp.i);
 
-      context.globalStores.find(x => x.typedIdent.i == imp.i) match {
+      context.globalScope.find(x => x.typedIdent.i == imp.i) match {
         case None => throw NoGlobalStoreFound(imp.i);
         case Some(global) => {
           // get the type from the global store
-          val typedIdent = TypedIdent(imp.i, global.typedIdent.t);
-          typedIdent.pos = imp.i.pos;
+          val typedIdent = global.typedIdent.copy;
 
-          // in/out stores are initialized by default
-          // TODO what todo with this information?
-          //          val initialized = imp.f.forall(f => f == In || f == InOut)
-          scope += new Store(typedIdent, None, imp.c, imp.f);
-
+          scope += new Store(typedIdent, None, imp.c, imp.f, globImp = true);
         }
       }
 
@@ -466,18 +461,14 @@ trait ContextChecker {
   // TODO almost the same as loadLocalParamDecl
   def loadProgParams(params: List[ProgParameter])(implicit context: SymbolTable) {
     params.foreach(param => {
-      // IN parameters are initialized by default (so no further initialization is allowed), OUT parameters need to be initialized (IML36)
-      //      val initialized = param.f.forall(f => f == In || f == InOut) // TODO what todo with this information?
       val paramStore = new Store(param.ti, None, param.c, param.f);
-      if (!context.globalStores.exists(param.ti.i)) context.globalStores += paramStore; else throw new DuplicateIdentException(param.ti.i);
+      if (!context.globalScope.exists(param.ti.i)) context.globalScope += paramStore; else throw new DuplicateIdentException(param.ti.i);
     })
   }
 
   def loadLocalParams(params: List[Parameter], scope: Scope) {
     params.foreach(param => {
 
-      // IN parameters are initialized by default (so no further initialization is allowed), OUT parameters need to be initialized  (IML36)
-      //      val initialized = param.f.forall(f => f == In || f == InOut) // TODO what todo with this information?
       val paramStore = new Store(param.ti, param.m, param.c, param.f);
 
       if (!scope.exists(param.ti.i)) scope += paramStore; else throw new DuplicateIdentException(param.ti.i);
@@ -509,7 +500,7 @@ class CompilerException(v: String) extends RuntimeException(v) {
   def this(n: ASTNode) = this(n.pos.longString)
 }
 
-case class Store(val typedIdent: TypedIdent, val mech: Option[MechMode], val change: Option[ChangeMode], val flow: Option[FlowMode])
+case class Store(val typedIdent: TypedIdent, val mech: Option[MechMode], val change: Option[ChangeMode], val flow: Option[FlowMode], val globImp: Boolean = false)
 
 // TODO use this instead of listbuffer
 case class Scope(private val _stores: ListBuffer[Store] = ListBuffer()) {
@@ -528,7 +519,7 @@ case class SymbolTable {
   private val _localStores = HashMap[Ident, Scope]();
   private val _routines = HashMap[Ident, Decl]();
 
-  def globalStores() = _globalStores;
+  def globalScope() = _globalStores;
   def routines() = _routines;
 
   def getLocalStoreScope(s: Ident): Scope = return _localStores.getOrElseUpdate(s, Scope())

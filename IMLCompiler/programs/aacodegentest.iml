@@ -1,12 +1,57 @@
 program aacodegentest() 
 global 
+fun test(in copy v:int, in copy v2:int) returns var b:bool
+do
+ b init := v > v2
+endfun;
+fun isPrime(in copy p:int) returns var b:bool
+local
+	var c:int
+do
+	c init := 2;
+	
+	if p > 1 do
+		b init := true;
+		while c < p do
+			if p mod c == 0 do
+				b := false
+			else
+				skip
+			endif;
+			c := c + 1
+		endwhile
+	else
+		b init := false
+	endif
+endfun;
+
+var l2:[[int]];
 var l:[int];
-var l2:[[int]]
+var i:int
 do 
- //l init := 1 :: 3 * 3 + 100 :: 3 :: 4 :: 5 :: 6 :: [];
- //l2 init := [[1,2,3],[4,5,6]];
- //l2 :=  (1 :: [0,100]) :: l2;
+
+/*
+ l2 init := [[1,2,3],[4,5,6]];
+ l2 := [100] :: l2;
+ debugout l2;
+ l init := head l2;
+ debugout l;
+ debugout head head l2;
+ debugout head l;
  
- l init := 100 :: 200 :: [];
+ 
+ i init := 0;
+ while (i < 5) do
+  debugout i;
+  i := i + 1
+ endwhile;
+ 
+ l := { x * x | x from 0 to 1000 when true };
+ 
  debugout l
+*/
+
+ l init := { x | x from 0 to 1000 when isPrime(x)  };
+ debugout l;
+ debugout length l
 endprogram

@@ -9,7 +9,7 @@ do
 	if p > 1 do
 		b init := true;
 		while c < p do
-			if c mod p == 0 do
+			if p mod c == 0 do
 				b := false
 			else
 				skip
@@ -24,6 +24,4 @@ endfun;
 var list:[int]
 do
 	list init := { x | x from 0 to 100 when isPrime(x) }
-	
-	// ;list := {x * x | x from 0 to 1000 when x mod 2 == 0}
 endprogram

@@ -18,9 +18,6 @@ trait JVMByteCodeGen extends ContextChecker {
 
   class CodeGenContext(val cw: ClassWriter, val prog: Program, val st: SymbolTable)
 
-  final val TMP_OBJ = "_tmp";
-  final val TMP_OBJ2 = "_tmp2";
-
   def writeCode(prog: Program, st: SymbolTable) = {
     val classWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
     val context = new CodeGenContext(classWriter, prog, st);
@@ -30,6 +27,7 @@ trait JVMByteCodeGen extends ContextChecker {
     writeGlobalStores()(context)
     writeClass()(context)
     writeConstructor()(context)
+    writeRoutines()(context)
     writeMainProgramm()(context)
     writeDeepCopy()(context)
     writeCons()(context)
@@ -46,7 +44,20 @@ trait JVMByteCodeGen extends ContextChecker {
       case c: OutputCmd => writeOutputCmd(c, mv, scope, localAccess);
       case c: IfCmd => writeIfCmd(c, mv, scope, localAccess)
       case c: SkipCmd => mv.visitInsn(NOP)
+      case c: WhileCmd => writeWhileCmd(c, mv, scope, localAccess);
     }
+  }
+
+  def writeWhileCmd(w: WhileCmd, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) = {
+    val beforeExpr = new Label()
+    val loop = new Label()
+
+    mv.visitJumpInsn(GOTO, beforeExpr)
+    mv.visitLabel(loop)
+    writeCommands(w.cmd, mv, scope, localAccess)
+    mv.visitLabel(beforeExpr)
+    writeExpr(w.expr, mv, scope, localAccess)
+    mv.visitJumpInsn(IFNE, loop)
   }
 
   def writeIfCmd(o: IfCmd, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) = {
@@ -61,22 +72,6 @@ trait JVMByteCodeGen extends ContextChecker {
     mv.visitLabel(l1)
     writeCommands(o.elseCmd, mv, scope, localAccess)
     mv.visitLabel(end)
-  }
-
-  def writeBecomesCmd(o: BecomesCmd, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) = {
-    writeExpr(o.rhs, mv, scope, localAccess);
-
-    if (localAccess) {
-
-    } else {
-      o.lhs match {
-        case e: StoreExpr => {
-          val t = scope.find(_.typedIdent.i == e.i).get.typedIdent.t
-          mv.visitFieldInsn(PUTSTATIC, context.prog.name.value, e.i.value, toJVMType(t));
-        }
-        case _ => throw new IllegalStateException
-      }
-    }
   }
 
   def writeOutputCmd(o: OutputCmd, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) = {
@@ -102,20 +97,49 @@ trait JVMByteCodeGen extends ContextChecker {
   //  def writeExprs(exprs: List[Expr], mv: MethodVisitor, scope: ListBuffer[Store], localAccess: Boolean = false)(implicit context: CodeGenContext) = exprs.foreach(writeExpr(_, mv, scope, localAccess))
   def writeExpr(expr: Expr, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) = {
     expr match {
-      case e: StoreExpr => writeStoreAccess(e, mv, scope, localAccess)
+      case e: StoreExpr => writeStoreAccess(e.i, mv, scope, localAccess)
       case d: DyadicExpr => writeDyadicExpr(d, mv, scope, localAccess)
       case m: MonadicExpr => writeMonadicExpr(m, mv, scope, localAccess)
       case l: LiteralExpr => writeLiteralExpr(l, mv, scope, localAccess)
+      case f: FunCallExpr => writeFunCallExpr(f, mv, scope, localAccess);
     }
   }
 
   // TODO what is local and what not? (access inside main method NOT local, access of global imports NOT local)
-  def writeStoreAccess(expr: StoreExpr, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) {
+  def writeStoreAccess(ident: Ident, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) {
+    val imlType = scope.find(_.typedIdent.i == ident).get.typedIdent.t;
+    val vmType = toJVMType(imlType);
     if (localAccess) {
-      // TODO impl
+      val index = scope.stores.indexWhere(_.typedIdent.i == ident)
+
+      imlType match {
+        case IntType | BoolType => mv.visitVarInsn(ILOAD, index);
+        // TODO impl rest
+      }
     } else {
-      val vmType = toJVMType(scope.find(_.typedIdent.i == expr.i).get.typedIdent.t);
-      mv.visitFieldInsn(GETSTATIC, context.prog.name.value, expr.i.value, vmType)
+      mv.visitFieldInsn(GETSTATIC, context.prog.name.value, ident.value, vmType)
+    }
+  }
+
+  def writeBecomesCmd(o: BecomesCmd, mv: MethodVisitor, scope: Scope, localAccess: Boolean)(implicit context: CodeGenContext) = {
+    writeExpr(o.rhs, mv, scope, localAccess);
+
+    o.lhs match {
+      case e: StoreExpr => {
+        val store = scope.find(_.typedIdent.i == e.i).get;
+        // TODO check if store is global import 
+        val imlType = store.typedIdent.t
+        if (localAccess) {
+          val index = scope.stores.indexWhere(_.typedIdent.i == e.i)
+          imlType match {
+            case IntType | BoolType => mv.visitVarInsn(ISTORE, index);
+            // TODO impl rest
+          }
+        } else {
+          mv.visitFieldInsn(PUTSTATIC, context.prog.name.value, e.i.value, toJVMType(imlType));
+        }
+      }
+      case _ => throw new IllegalStateException
     }
   }
 
@@ -130,8 +154,18 @@ trait JVMByteCodeGen extends ContextChecker {
         writeExpr(dyadicExpr.l, mv, scope, localAccess); writeExpr(dyadicExpr.r, mv, scope, localAccess); mv.visitInsn(IDIV)
       case TimesOpr =>
         writeExpr(dyadicExpr.l, mv, scope, localAccess); writeExpr(dyadicExpr.r, mv, scope, localAccess); mv.visitInsn(IMUL)
+      case ModOpr =>
+        writeExpr(dyadicExpr.l, mv, scope, localAccess); writeExpr(dyadicExpr.r, mv, scope, localAccess); mv.visitInsn(IREM)
       case EQ =>
         writeExpr(dyadicExpr.l, mv, scope, localAccess); writeExpr(dyadicExpr.r, mv, scope, localAccess); writeCheckEquals(mv);
+      case LT =>
+        writeExpr(dyadicExpr.l, mv, scope, localAccess); writeExpr(dyadicExpr.r, mv, scope, localAccess); writeCheckLessThan(mv);
+      case LE =>
+        writeExpr(dyadicExpr.l, mv, scope, localAccess); writeExpr(dyadicExpr.r, mv, scope, localAccess); writeCheckLessEquals(mv);
+      case GT =>
+        writeExpr(dyadicExpr.l, mv, scope, localAccess); writeExpr(dyadicExpr.r, mv, scope, localAccess); writeCheckGreaterThan(mv);
+      case GE =>
+        writeExpr(dyadicExpr.l, mv, scope, localAccess); writeExpr(dyadicExpr.r, mv, scope, localAccess); writeCheckGreaterEquals(mv);
       case ConsOpr =>
         writeListCons(dyadicExpr, mv, scope, localAccess);
     }
@@ -179,6 +213,23 @@ trait JVMByteCodeGen extends ContextChecker {
     }
   }
 
+  def writeFunCallExpr(f: FunCallExpr, mv: MethodVisitor, scope: Scope, localAccess: Boolean, listLev: Int = 0)(implicit context: CodeGenContext) {
+    val routineDecl = context.st.routines.find(_._1 == f.i).get._2
+
+    // write parameters to stack
+    f.e.l.foreach(writeExpr(_, mv, scope, localAccess))
+
+    // call function
+    routineDecl match {
+      case f: FunDecl => {
+        val paramRet = "(" + f.params.map(s => toJVMType(s.ti.t)).mkString("") + ")" + toJVMType(f.returns.ti.t)
+
+        mv.visitMethodInsn(INVOKESTATIC, context.prog.name.value, f.ident.value, paramRet);
+      }
+      case _ => throw new IllegalStateException
+    }
+  }
+
   def writeListLiteral(l: ListLiteral, mv: MethodVisitor, scope: Scope, localAccess: Boolean, listLevel: Int)(implicit context: CodeGenContext) {
     mv.visitIntInsn(BIPUSH, l.l.size) // write array length
 
@@ -205,13 +256,10 @@ trait JVMByteCodeGen extends ContextChecker {
   }
 
   def writeGlobalStores()(implicit context: CodeGenContext) =
-    context.st.globalStores.stores.foreach(s => context.cw.visitField(ACC_PRIVATE + ACC_STATIC, s.typedIdent.i.value, toJVMType(s.typedIdent.t).toString, null, null))
+    context.st.globalScope.stores.foreach(s => context.cw.visitField(ACC_PRIVATE + ACC_STATIC, s.typedIdent.i.value, toJVMType(s.typedIdent.t).toString, null, null))
 
   def writeClass()(implicit context: CodeGenContext) {
     context.cw.visit(V1_7, ACC_PUBLIC + ACC_SUPER, context.prog.name.value, null, "java/lang/Object", null);
-
-    context.cw.visitField(ACC_PRIVATE + ACC_STATIC, TMP_OBJ, "Ljava/lang/Object;", null, null)
-    context.cw.visitField(ACC_PRIVATE + ACC_STATIC, TMP_OBJ2, "Ljava/lang/Object;", null, null)
   }
 
   def writeCons()(implicit context: CodeGenContext) {
@@ -252,7 +300,7 @@ trait JVMByteCodeGen extends ContextChecker {
     mv.visitInsn(ICONST_1);
     mv.visitInsn(IADD);
     mv.visitVarInsn(ALOAD, 3);
-    mv.visitMethodInsn(INVOKESTATIC, "ch/fhnw/codegen/javacodetest/ResultTest", "deepCopy", "(Ljava/lang/Object;)Ljava/lang/Object;");
+    mv.visitMethodInsn(INVOKESTATIC, context.prog.name.value, "deepCopy", "(Ljava/lang/Object;)Ljava/lang/Object;");
     mv.visitInsn(AASTORE);
     val l8 = new Label();
     mv.visitJumpInsn(GOTO, l8);
@@ -331,7 +379,7 @@ trait JVMByteCodeGen extends ContextChecker {
     mv.visitVarInsn(ALOAD, 2);
     mv.visitVarInsn(ILOAD, 3);
     mv.visitVarInsn(ALOAD, 4);
-    mv.visitMethodInsn(INVOKESTATIC, "ch/fhnw/codegen/javacodetest/ResultTest", "deepCopy", "(Ljava/lang/Object;)Ljava/lang/Object;");
+    mv.visitMethodInsn(INVOKESTATIC, context.prog.name.value, "deepCopy", "(Ljava/lang/Object;)Ljava/lang/Object;");
     mv.visitInsn(AASTORE);
     val l11 = new Label();
     mv.visitJumpInsn(GOTO, l11);
@@ -377,13 +425,38 @@ trait JVMByteCodeGen extends ContextChecker {
     constructor.visitEnd();
   }
 
+  def writeFunction(f: FunDecl)(implicit context: CodeGenContext) {
+    val scope = context.st.getLocalStoreScope(f.ident);
+    val paramRet = "(" + f.params.map(s => toJVMType(s.ti.t)).mkString("") + ")" + toJVMType(f.returns.ti.t)
+    val fun = context.cw.visitMethod(ACC_PRIVATE + ACC_STATIC, f.ident.value, paramRet, null, null);
+
+    writeCommands(f.cmds, fun, scope, true)
+
+    // load return value onto stack
+    writeStoreAccess(f.returns.ti.i, fun, scope, true)
+
+    f.returns.ti.t match {
+      case IntType | BoolType => fun.visitInsn(IRETURN);
+      // implement rest
+    }
+
+    fun.visitMaxs(0, 0); // ignore ignore
+    fun.visitEnd();
+  }
+
+  def writeRoutines()(implicit context: CodeGenContext) {
+    context.st.routines.foreach(r => r._2 match {
+      case f: FunDecl => writeFunction(f);
+    })
+  }
+
   def writeMainProgramm()(implicit context: CodeGenContext) {
     val main = context.cw.visitMethod(ACC_PUBLIC + ACC_STATIC, "main", "([Ljava/lang/String;)V", null, null);
     main.visitVarInsn(ALOAD, 0);
 
-    writeCommands(context.prog.commands, main, context.st.globalStores, false);
+    writeCommands(context.prog.commands, main, context.st.globalScope, false);
 
-    main.visitMaxs(0, 0);
+    main.visitMaxs(0, 0); // ignore ignore
     main.visitInsn(RETURN);
     main.visitEnd();
   }
@@ -393,7 +466,7 @@ trait JVMByteCodeGen extends ContextChecker {
     writeExpr(dyadicExpr.r, mv, scope, localAccess);
     mv.visitMethodInsn(INVOKESTATIC, context.prog.name.value, "cons", "([Ljava/lang/Object;)[Ljava/lang/Object;");
     mv.visitInsn(DUP)
-    
+
     mv.visitInsn(ICONST_0);
 
     writeExpr(dyadicExpr.l, mv, scope, localAccess);
@@ -405,49 +478,6 @@ trait JVMByteCodeGen extends ContextChecker {
     }
 
     mv.visitInsn(AASTORE);
-
-    //    // ref of array is on stack
-    //    writeExpr(dyadicExpr.r, mv, scope, localAccess);
-    //    mv.visitFieldInsn(PUTSTATIC, context.prog.name.value, TMP_OBJ, "Ljava/lang/Object;");
-    //
-    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ, "Ljava/lang/Object;");
-    //    mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
-    //    mv.visitInsn(ARRAYLENGTH);
-    //    mv.visitInsn(ICONST_1)
-    //    mv.visitInsn(IADD)
-    //
-    //    val rType = returnType(dyadicExpr.r, scope)(context.st);
-    //    val arrType = ("[" * (listLevel(rType) - 1)) + "Ljava/lang/Object;";
-    //    mv.visitTypeInsn(ANEWARRAY, arrType);
-    //    mv.visitFieldInsn(PUTSTATIC, context.prog.name.value, TMP_OBJ2, "Ljava/lang/Object;");
-    //
-    //    // copy
-    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ, "Ljava/lang/Object;");
-    //    mv.visitInsn(ICONST_0);
-    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ2, "Ljava/lang/Object;");
-    //    mv.visitInsn(ICONST_1);
-    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ, "Ljava/lang/Object;");
-    //    mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
-    //    mv.visitInsn(ARRAYLENGTH);
-    //    mv.visitMethodInsn(INVOKESTATIC, "java/lang/System", "arraycopy", "(Ljava/lang/Object;ILjava/lang/Object;II)V");
-    //
-    //    // store lhs into first element
-    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ2, "Ljava/lang/Object;");
-    //    mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
-    //    mv.visitInsn(ICONST_0);
-    //    writeExpr(dyadicExpr.l, mv, scope, localAccess);
-    //
-    //    val lType = returnType(dyadicExpr.l, scope)(context.st);
-    //    lType match {
-    //      case IntType => mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;");
-    //      case _ => // TODO impl
-    //    }
-    //
-    //    mv.visitInsn(AASTORE);
-    //
-    //    // put ref of new array on top
-    //    mv.visitFieldInsn(GETSTATIC, context.prog.name.value, TMP_OBJ2, "Ljava/lang/Object;");
-    //    mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
   }
 
   def writeCheckNotEquals(mv: MethodVisitor)(implicit scope: CodeGenContext) {
@@ -461,10 +491,53 @@ trait JVMByteCodeGen extends ContextChecker {
     mv.visitLabel(end)
   }
 
-  def writeCheckEquals(mv: MethodVisitor)(implicit scope: CodeGenContext) {
+  def writeCheckEquals(mv: MethodVisitor) {
     val returnFalse = new Label();
     val end = new Label();
     mv.visitJumpInsn(IF_ICMPNE, returnFalse)
+    mv.visitInsn(ICONST_1)
+    mv.visitJumpInsn(GOTO, end)
+    mv.visitLabel(returnFalse)
+    mv.visitInsn(ICONST_0)
+    mv.visitLabel(end)
+  }
+
+  def writeCheckLessThan(mv: MethodVisitor) {
+    val returnFalse = new Label();
+    val end = new Label();
+    mv.visitJumpInsn(IF_ICMPGE, returnFalse)
+    mv.visitInsn(ICONST_1)
+    mv.visitJumpInsn(GOTO, end)
+    mv.visitLabel(returnFalse)
+    mv.visitInsn(ICONST_0)
+    mv.visitLabel(end)
+  }
+
+  def writeCheckLessEquals(mv: MethodVisitor) {
+    val returnFalse = new Label();
+    val end = new Label();
+    mv.visitJumpInsn(IF_ICMPGT, returnFalse)
+    mv.visitInsn(ICONST_1)
+    mv.visitJumpInsn(GOTO, end)
+    mv.visitLabel(returnFalse)
+    mv.visitInsn(ICONST_0)
+    mv.visitLabel(end)
+  }
+
+  def writeCheckGreaterThan(mv: MethodVisitor) {
+    val returnFalse = new Label();
+    val end = new Label();
+    mv.visitJumpInsn(IF_ICMPLE, returnFalse)
+    mv.visitInsn(ICONST_1)
+    mv.visitJumpInsn(GOTO, end)
+    mv.visitLabel(returnFalse)
+    mv.visitInsn(ICONST_0)
+    mv.visitLabel(end)
+  }
+  def writeCheckGreaterEquals(mv: MethodVisitor) {
+    val returnFalse = new Label();
+    val end = new Label();
+    mv.visitJumpInsn(IF_ICMPLT, returnFalse)
     mv.visitInsn(ICONST_1)
     mv.visitJumpInsn(GOTO, end)
     mv.visitLabel(returnFalse)

@@ -10,9 +10,15 @@ object AST {
 
   class ASTNode extends Positional
 
-  case class Program(name:Ident, params: List[ProgParameter], cpsDecl: List[Decl], commands: List[Cmd]) extends ASTNode
+  case class Program(name: Ident, params: List[ProgParameter], cpsDecl: List[Decl], commands: List[Cmd]) extends ASTNode
 
-  case class TypedIdent(i: Ident, t: Type) extends ASTNode
+  case class TypedIdent(i: Ident, t: Type) extends ASTNode {
+    def copy(): TypedIdent = {
+    	val r = TypedIdent(i,t);
+    	r.pos = pos;
+    	return r;
+    }
+  }
 
   case class Parameter(f: Option[FlowMode], m: Option[MechMode], c: Option[ChangeMode], ti: TypedIdent) extends ASTNode
   case class ProgParameter(f: Option[FlowMode], c: Option[ChangeMode], ti: TypedIdent) extends ASTNode
