@@ -109,8 +109,8 @@ trait ASTTransformers {
     val countTypedIdent = TypedIdent(countIdent, IntType);
     val listIdentTypedIdent = TypedIdent(listIdent, ListType(IntType)) // TODO maybe infer type?
 
-    scope += Store(countTypedIdent, None, Some(Var), None);
-    scope += Store(listIdentTypedIdent, None, Some(Var), None);
+    scope += Store(countTypedIdent, None, Some(Var), None, synthetic = true);
+    scope += Store(listIdentTypedIdent, None, Some(Var), None, synthetic = true);
 
     val counterStoreDecl = StoreDecl(Var, countTypedIdent)
     val listStoreDecl = StoreDecl(Var, listIdentTypedIdent)
@@ -136,7 +136,7 @@ trait ASTTransformers {
 
   def replace(e: Expr, from: Ident, to: Ident): Expr = {
     e match {
-      case d: DyadicExpr => DyadicExpr(replace(d.l, from, to), d.op, replace(d.l, from, to))
+      case d: DyadicExpr => DyadicExpr(replace(d.l, from, to), d.op, replace(d.r, from, to))
       case s: StoreExpr => StoreExpr(if (s.i == from) to else s.i, s.isInitialization);
       case l: LiteralExpr => l;
       case f: FunCallExpr => FunCallExpr(f.i, TupleExpr(f.e.l.map(replace(_, from, to))))

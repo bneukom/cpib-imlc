@@ -378,8 +378,7 @@ trait ContextChecker {
 
       // check type of argument
       val exprReturnType = returnType(element._1, scope);
-      if (exprReturnType != element._2.ti.t) throw InvalidParamater(element._1, element._2.ti.t, exprReturnType)
-
+      if (!exprReturnType.matches(element._2.ti.t)) throw InvalidParamater(element._1, element._2.ti.t, exprReturnType)
     })
   }
 
@@ -500,7 +499,7 @@ class CompilerException(v: String) extends RuntimeException(v) {
   def this(n: ASTNode) = this(n.pos.longString)
 }
 
-case class Store(val typedIdent: TypedIdent, val mech: Option[MechMode], val change: Option[ChangeMode], val flow: Option[FlowMode], val globImp: Boolean = false)
+case class Store(val typedIdent: TypedIdent, val mech: Option[MechMode], val change: Option[ChangeMode], val flow: Option[FlowMode], val globImp: Boolean = false, val synthetic: Boolean = false)
 
 // TODO use this instead of listbuffer
 case class Scope(private val _stores: ListBuffer[Store] = ListBuffer()) {

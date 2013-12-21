@@ -1,15 +1,26 @@
 package ch.fhnw.codegen.javacodetest;
 
+
 public class ListConsTest {
 
-	public static boolean foo(int i, int j) {
-		return i > j;
+	private static int[] i = new int[1];
+	private static int[] i2 = new int[1];
+	private static int[] i3 = new int[1];
+	
+	private static void foo(int[] x /*inout*/, int[] x2 /*ref*/, int[] x3 /*out*/) {
+		
 	}
 	
 	public static void main(String[] args) {
-		boolean b = foo(3, 3);
+		// local var a
+		int[] tmp0 = new int[1];
+		tmp0[0] = i[0];
+		int[] tmp1 = new int[1];
+		foo(tmp0, i2, tmp1);
+		i[0] = tmp0[0];
+		i3[0] = tmp1[0];
 	}
-	
+
 	// // globals
 	// private static int intValue = 0; // intValue:int;
 	// private static Object[] list; // list:[int];
@@ -19,7 +30,7 @@ public class ListConsTest {
 	//
 	// int a = 3;
 	// while (a > 5) {
-	// a ++;
+	// a++;
 	// }
 	//
 	// // list init := [1,2,3,4];
@@ -56,6 +67,27 @@ public class ListConsTest {
 	// // debugout nestedList;
 	// System.out.println(Arrays.deepToString(nestedList));
 	//
+	// // nestedList := tail nestedList;
+	// nestedList = tail(nestedList);
+	//
+	// // debugout nestedList;
+	// System.out.println(Arrays.deepToString(nestedList));
+	// }
+	//
+	// private static Object[] tail(Object[] o) {
+	//
+	// final Object[] result = new Object[o.length - 1];
+	//
+	// for (int i = 1; i < o.length; ++i) {
+	// Object object = o[i];
+	// if (object instanceof Object[]) {
+	// result[i - 1] = deepCopy(object);
+	// } else {
+	// result[i - 1] = object;
+	// }
+	// }
+	//
+	// return result;
 	// }
 	//
 	// private static Object[] cons(Object[] o) {

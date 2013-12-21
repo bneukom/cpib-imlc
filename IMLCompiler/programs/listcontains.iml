@@ -6,7 +6,7 @@ do
 	if length l == 0 do
 		r init := false
 	else
-		r := head l == i || contains(tail l, i)
+		r init := head l == i || contains(tail l, i)
 	endif
 endfun;
 
@@ -16,6 +16,7 @@ var i:int;
 var c:bool
 do
 	l init := [1,2,3,4,5,6,7,8];
-	i init := 6;
-	c init := contains(l, i)
+	i init := 32;
+	c init := contains(l, i);
+	debugout c
 endprogram
