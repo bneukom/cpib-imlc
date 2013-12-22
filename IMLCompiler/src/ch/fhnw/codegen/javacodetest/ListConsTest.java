@@ -1,24 +1,11 @@
 package ch.fhnw.codegen.javacodetest;
 
-
 public class ListConsTest {
 
-	private static int[] i = new int[1];
-	private static int[] i2 = new int[1];
-	private static int[] i3 = new int[1];
-	
-	private static void foo(int[] x /*inout*/, int[] x2 /*ref*/, int[] x3 /*out*/) {
-		
-	}
-	
 	public static void main(String[] args) {
-		// local var a
-		int[] tmp0 = new int[1];
-		tmp0[0] = i[0];
-		int[] tmp1 = new int[1];
-		foo(tmp0, i2, tmp1);
-		i[0] = tmp0[0];
-		i3[0] = tmp1[0];
+		Object[] o = new Object[3];
+		o[0] = "a";
+		System.out.println(o);
 	}
 
 	// // globals

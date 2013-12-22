@@ -11,6 +11,7 @@ import ch.fhnw.imlcompiler.Store
 import ch.fhnw.imlcompiler.ContextChecker
 import org.objectweb.asm.Label
 import ch.fhnw.imlcompiler.Scope
+import ch.fhnw.imlcompiler.Store
 
 // TODO create internal write int method which always chooses the best one ICONST_1 BIPISH etc
 trait JVMByteCodeGen extends ContextChecker {
@@ -37,151 +38,188 @@ trait JVMByteCodeGen extends ContextChecker {
     fileWriter.close
   }
 
-  def writeCommands(cmds: List[Cmd], mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) = cmds.foreach(writeCommand(_, mv, scope, routineCall))
-  def writeCommand(cmd: Cmd, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) {
+  def writeCommands(cmds: List[Cmd], mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = cmds.foreach(writeCommand(_, mv, scope, insideRoutine))
+  def writeCommand(cmd: Cmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) {
     cmd match {
-      case c: BecomesCmd => writeBecomesCmd(c, mv, scope, routineCall);
-      case c: OutputCmd => writeOutputCmd(c, mv, scope, routineCall);
-      case c: IfCmd => writeIfCmd(c, mv, scope, routineCall)
+      case c: BecomesCmd => writeBecomesCmd(c, mv, scope, insideRoutine);
+      case c: OutputCmd => writeOutputCmd(c, mv, scope, insideRoutine);
+      case c: IfCmd => writeIfCmd(c, mv, scope, insideRoutine)
       case c: SkipCmd => mv.visitInsn(NOP)
-      case c: WhileCmd => writeWhileCmd(c, mv, scope, routineCall);
+      case c: WhileCmd => writeWhileCmd(c, mv, scope, insideRoutine);
+      case c: CallCmd => writeCallCmd(c, mv, scope, insideRoutine);
     }
   }
 
-  def writeWhileCmd(w: WhileCmd, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) = {
+  def writeWhileCmd(w: WhileCmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
     val beforeExpr = new Label()
     val loop = new Label()
 
     mv.visitJumpInsn(GOTO, beforeExpr)
     mv.visitLabel(loop)
-    writeCommands(w.cmd, mv, scope, routineCall)
+    writeCommands(w.cmd, mv, scope, insideRoutine)
     mv.visitLabel(beforeExpr)
-    writeExpr(w.expr, mv, scope, routineCall)
+    writeExpr(w.expr, mv, scope, insideRoutine)
     mv.visitJumpInsn(IFNE, loop)
   }
 
-  def writeIfCmd(o: IfCmd, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) = {
-    writeExpr(o.expr, mv, scope, routineCall)
+  def writeIfCmd(o: IfCmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
+    writeExpr(o.expr, mv, scope, insideRoutine)
 
     val l1 = new Label()
     val end = new Label()
 
     mv.visitJumpInsn(IFEQ, l1)
-    writeCommands(o.ifCmd, mv, scope, routineCall)
+    writeCommands(o.ifCmd, mv, scope, insideRoutine)
     mv.visitJumpInsn(GOTO, end)
     mv.visitLabel(l1)
-    writeCommands(o.elseCmd, mv, scope, routineCall)
+    writeCommands(o.elseCmd, mv, scope, insideRoutine)
     mv.visitLabel(end)
   }
 
-  def writeOutputCmd(o: OutputCmd, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) = {
+  def writeOutputCmd(o: OutputCmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
 
     val retType = returnType(o.expr, scope)(context.st);
     retType match {
       case l: ListType => {
         // use the deepToString library method
         mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-        writeExpr(o.expr, mv, scope, routineCall)
+        writeExpr(o.expr, mv, scope, insideRoutine)
         mv.visitMethodInsn(INVOKESTATIC, "java/util/Arrays", "deepToString", "([Ljava/lang/Object;)Ljava/lang/String;");
         mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V");
       }
       case _ => {
         mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
-        writeExpr(o.expr, mv, scope, routineCall)
+        writeExpr(o.expr, mv, scope, insideRoutine)
         mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(" + toJVMType(returnType(o.expr, scope)(context.st)) + ")V");
       }
     }
 
   }
 
-  //  def writeExprs(exprs: List[Expr], mv: MethodVisitor, scope: ListBuffer[Store], routineCall: Boolean = false)(implicit context: CodeGenContext) = exprs.foreach(writeExpr(_, mv, scope, routineCall))
-  def writeExpr(expr: Expr, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) = {
+  //  def writeExprs(exprs: List[Expr], mv: MethodVisitor, scope: ListBuffer[Store], insideRoutine: Boolean = false)(implicit context: CodeGenContext) = exprs.foreach(writeExpr(_, mv, scope, insideRoutine))
+  def writeExpr(expr: Expr, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
     expr match {
-      case e: StoreExpr => writeStoreAccess(e.i, mv, scope, routineCall)
-      case d: DyadicExpr => writeDyadicExpr(d, mv, scope, routineCall)
-      case m: MonadicExpr => writeMonadicExpr(m, mv, scope, routineCall)
-      case l: LiteralExpr => writeLiteralExpr(l, mv, scope, routineCall)
-      case f: FunCallExpr => writeFunCallExpr(f, mv, scope, routineCall);
+      case e: StoreExpr => writeStoreRead(e.i, mv, scope, insideRoutine)
+      case d: DyadicExpr => writeDyadicExpr(d, mv, scope, insideRoutine)
+      case m: MonadicExpr => writeMonadicExpr(m, mv, scope, insideRoutine)
+      case l: LiteralExpr => writeLiteralExpr(l, mv, scope, insideRoutine)
+      case f: FunCallExpr => writeFunCallExpr(f, mv, scope, insideRoutine);
+      case _ => throw new IllegalStateException
     }
   }
 
   // store read
-  def writeStoreAccess(ident: Ident, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) {
+  def writeStoreRead(ident: Ident, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) {
     val store = scope.find(_.typedIdent.i == ident).get;
     val imlType = store.typedIdent.t;
     val vmType = toJVMType(imlType);
-    if ((routineCall || store.synthetic) && !store.globImp) {
-      val index = if (routineCall) scope.stores.filter(!_.globImp).indexWhere(_.typedIdent.i == ident) else scope.stores.filter(_.synthetic).indexWhere(_.typedIdent.i == ident) + 1; // + 1 beacuse main param arguments
-      imlType match {
-        case IntType | BoolType => mv.visitVarInsn(ILOAD, index);
-        case _ => mv.visitVarInsn(ALOAD, index);
+
+    if ((insideRoutine || store.synthetic) && !store.globImp) { // inside method or synthetic store access
+      val index = if (insideRoutine) scope.stores.filter(!_.globImp).indexWhere(_.typedIdent.i == ident) else scope.stores.filter(_.synthetic).indexWhere(_.typedIdent.i == ident) + 1; // + 1 beacuse main param arguments
+
+      store.flow.get match {
+        case Out | InOut => {
+          mv.visitVarInsn(ALOAD, index);
+          mv.visitInsn(ICONST_0);
+
+          imlType match {
+            case IntType | BoolType => mv.visitInsn(IALOAD);
+            case _ => mv.visitInsn(AALOAD);
+          }
+        }
+        case _ => {
+          imlType match {
+            case IntType | BoolType => mv.visitVarInsn(ILOAD, index);
+            case _ => mv.visitVarInsn(ALOAD, index);
+          }
+        }
       }
-    } else {
+
+    } else { // either access via glob import or inside main method
+
       mv.visitFieldInsn(GETSTATIC, context.prog.name.value, ident.value, vmType)
     }
   }
 
   // store write
-  def writeBecomesCmd(o: BecomesCmd, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) = {
-    writeExpr(o.rhs, mv, scope, routineCall);
+  def writeStoreWrite(i: Ident, write: () => Unit, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
+    val store = scope.find(_.typedIdent.i == i).get;
+    val imlType = store.typedIdent.t
+    if ((insideRoutine || store.synthetic) && !store.globImp) {
+      val index = if (insideRoutine) scope.stores.filter(!_.globImp).indexWhere(_.typedIdent.i == i) else scope.stores.filter(_.synthetic).indexWhere(_.typedIdent.i == i) + 1; // + 1 beacuse main param arguments
 
-    o.lhs match {
-      case e: StoreExpr => {
-        val store = scope.find(_.typedIdent.i == e.i).get;
-        val imlType = store.typedIdent.t
-        if ((routineCall || store.synthetic) && !store.globImp) {
-          val index = if (routineCall) scope.stores.filter(!_.globImp).indexWhere(_.typedIdent.i == e.i) else scope.stores.filter(_.synthetic).indexWhere(_.typedIdent.i == e.i) + 1; // + 1 beacuse main param arguments
+      store.flow.get match {
+        case Out | InOut => {
+          mv.visitVarInsn(ALOAD, index);
+          mv.visitInsn(ICONST_0);
+          write();
+          imlType match {
+            case IntType | BoolType => mv.visitInsn(IASTORE);
+            case _ => mv.visitInsn(AASTORE);
+          }
+        }
+        case _ => {
+          write();
           imlType match {
             case IntType | BoolType => mv.visitVarInsn(ISTORE, index);
             case _ => mv.visitVarInsn(ASTORE, index);
           }
-        } else {
-          mv.visitFieldInsn(PUTSTATIC, context.prog.name.value, e.i.value, toJVMType(imlType));
         }
       }
+
+    } else {
+      write();
+      mv.visitFieldInsn(PUTSTATIC, context.prog.name.value, i.value, toJVMType(imlType));
+    }
+  }
+
+  def writeBecomesCmd(b: BecomesCmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
+    val writeRhsExpr = () => writeExpr(b.rhs, mv, scope, insideRoutine);
+    b.lhs match {
+      case e: StoreExpr => writeStoreWrite(e.i, writeRhsExpr, mv, scope, insideRoutine)
       case _ => throw new IllegalStateException
     }
   }
 
-  def writeDyadicExpr(dyadicExpr: DyadicExpr, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) {
+  def writeDyadicExpr(dyadicExpr: DyadicExpr, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) {
 
     dyadicExpr.op match {
       case PlusOpr =>
-        writeExpr(dyadicExpr.l, mv, scope, routineCall); writeExpr(dyadicExpr.r, mv, scope, routineCall); mv.visitInsn(IADD)
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); mv.visitInsn(IADD)
       case MinusOpr =>
-        writeExpr(dyadicExpr.l, mv, scope, routineCall); writeExpr(dyadicExpr.r, mv, scope, routineCall); mv.visitInsn(ISUB)
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); mv.visitInsn(ISUB)
       case DivOpr =>
-        writeExpr(dyadicExpr.l, mv, scope, routineCall); writeExpr(dyadicExpr.r, mv, scope, routineCall); mv.visitInsn(IDIV)
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); mv.visitInsn(IDIV)
       case TimesOpr =>
-        writeExpr(dyadicExpr.l, mv, scope, routineCall); writeExpr(dyadicExpr.r, mv, scope, routineCall); mv.visitInsn(IMUL)
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); mv.visitInsn(IMUL)
       case ModOpr =>
-        writeExpr(dyadicExpr.l, mv, scope, routineCall); writeExpr(dyadicExpr.r, mv, scope, routineCall); mv.visitInsn(IREM)
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); mv.visitInsn(IREM)
       case EQ =>
-        writeExpr(dyadicExpr.l, mv, scope, routineCall); writeExpr(dyadicExpr.r, mv, scope, routineCall); writeCheckEquals(mv);
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); writeCheckEquals(mv);
       case LT =>
-        writeExpr(dyadicExpr.l, mv, scope, routineCall); writeExpr(dyadicExpr.r, mv, scope, routineCall); writeCheckLessThan(mv);
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); writeCheckLessThan(mv);
       case LE =>
-        writeExpr(dyadicExpr.l, mv, scope, routineCall); writeExpr(dyadicExpr.r, mv, scope, routineCall); writeCheckLessEquals(mv);
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); writeCheckLessEquals(mv);
       case GT =>
-        writeExpr(dyadicExpr.l, mv, scope, routineCall); writeExpr(dyadicExpr.r, mv, scope, routineCall); writeCheckGreaterThan(mv);
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); writeCheckGreaterThan(mv);
       case GE =>
-        writeExpr(dyadicExpr.l, mv, scope, routineCall); writeExpr(dyadicExpr.r, mv, scope, routineCall); writeCheckGreaterEquals(mv);
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); writeCheckGreaterEquals(mv);
       case ConsOpr =>
-        writeListCons(dyadicExpr, mv, scope, routineCall);
-      case Cor => writeCondOr(mv, dyadicExpr.l, dyadicExpr.r, scope, routineCall)
+        writeListCons(dyadicExpr, mv, scope, insideRoutine);
+      case Cor => writeCondOr(mv, dyadicExpr.l, dyadicExpr.r, scope, insideRoutine)
     }
   }
 
-  def writeMonadicExpr(monadicExpr: MonadicExpr, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) {
+  def writeMonadicExpr(monadicExpr: MonadicExpr, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) {
     monadicExpr.op match {
-      case LengthOpr => writeExpr(monadicExpr.l, mv, scope, routineCall); mv.visitInsn(ARRAYLENGTH);
-      case HeadOpr => writeHeadOpr(monadicExpr, mv, scope, routineCall)
-      case TailOpr => writeTailOpr(monadicExpr, mv, scope, routineCall)
-      case MinusOpr => writeExpr(monadicExpr.l, mv, scope, routineCall); mv.visitInsn(INEG)
+      case LengthOpr => writeExpr(monadicExpr.l, mv, scope, insideRoutine); mv.visitInsn(ARRAYLENGTH);
+      case HeadOpr => writeHeadOpr(monadicExpr, mv, scope, insideRoutine)
+      case TailOpr => writeTailOpr(monadicExpr, mv, scope, insideRoutine)
+      case MinusOpr => writeExpr(monadicExpr.l, mv, scope, insideRoutine); mv.visitInsn(INEG)
     }
   }
 
-  def writeLiteralExpr(l: LiteralExpr, mv: MethodVisitor, scope: Scope, routineCall: Boolean, listLev: Int = 0)(implicit context: CodeGenContext) {
+  def writeLiteralExpr(l: LiteralExpr, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean, listLev: Int = 0)(implicit context: CodeGenContext) {
     l.l match {
       case BoolLiteral(b) =>
         mv.visitIntInsn(BIPUSH, if (b) 1 else 0)
@@ -189,16 +227,17 @@ trait JVMByteCodeGen extends ContextChecker {
         mv.visitLdcInsn(new Integer(v));
       case l: ListLiteral => {
         val retType = returnType(l, scope)(context.st);
-        writeListLiteral(l, mv, scope, routineCall, listLevel(retType) - 1);
+        writeListLiteral(l, mv, scope, insideRoutine, listLevel(retType) - 1);
       }
     }
   }
 
-  def writeFunCallExpr(f: FunCallExpr, mv: MethodVisitor, scope: Scope, routineCall: Boolean, listLev: Int = 0)(implicit context: CodeGenContext) {
+  // TODO pretty much the same as writeCallCmd
+  def writeFunCallExpr(f: FunCallExpr, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean, listLev: Int = 0)(implicit context: CodeGenContext) {
     val routineDecl = context.st.routines.find(_._1 == f.i).get._2
 
     // write parameters to stack
-    f.e.l.foreach(writeExpr(_, mv, scope, routineCall))
+    f.e.l.foreach(writeExpr(_, mv, scope, insideRoutine))
 
     // call function
     routineDecl match {
@@ -211,11 +250,111 @@ trait JVMByteCodeGen extends ContextChecker {
     }
   }
 
-  def writeListLiteral(l: ListLiteral, mv: MethodVisitor, scope: Scope, routineCall: Boolean, listLevel: Int)(implicit context: CodeGenContext) {
+  def writeCallCmd(f: CallCmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean, listLev: Int = 0)(implicit context: CodeGenContext) {
+    val routineDecl = context.st.routines.find(_._1 == f.i).get._2.asInstanceOf[ProcDecl]
+    val localEnd = if (insideRoutine) scope.stores.filter(!_.globImp).length else 1 // 1 beacuse of main string[] arguments
+
+    // write parameters onto stack (out/inout need to be treated diferently)
+    setupProcParams(f, mv, scope, insideRoutine, routineDecl, localEnd)
+
+    // load all procedure parameteres onto stack
+    loadProcParams(f, mv, scope, insideRoutine, routineDecl, localEnd)
+
+    // call function
+    routineDecl match {
+      case f: ProcDecl => {
+        val paramRet = getJVMProcParams(f);
+
+        mv.visitMethodInsn(INVOKESTATIC, context.prog.name.value, f.ident.value, paramRet);
+      }
+      case _ => throw new IllegalStateException
+    }
+
+    // restore the out parameters
+    restoreOutParams(f, mv, scope, insideRoutine, routineDecl, localEnd)
+  }
+
+  private def setupProcParams(f: CallCmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean, routineDecl: ProcDecl, localEnd: Int)(implicit context: CodeGenContext): Unit = {
+    f.e.l.foldLeft((0, localEnd))((a, e) => e match {
+      case StoreExpr(ident, isInit) => {
+        mv.visitInsn(ICONST_1);
+        routineDecl.params(a._1).ti.t match {
+          case IntType => mv.visitIntInsn(NEWARRAY, T_INT);
+          case BoolType => mv.visitIntInsn(NEWARRAY, T_BOOLEAN)
+          case ListType(_) => mv.visitTypeInsn(ANEWARRAY, "java/lang/Object");
+          case _ => throw new IllegalStateException
+        }
+        mv.visitVarInsn(ASTORE, a._2);
+
+        routineDecl.params(a._1) match {
+          case Parameter(Some(Out), _, _, t) => (a._1 + 1, a._2 + 1)
+          case Parameter(Some(InOut), _, _, t) => {
+            mv.visitVarInsn(ALOAD, a._2);
+            mv.visitInsn(ICONST_0);
+            writeStoreRead(ident, mv, scope, insideRoutine)
+            mv.visitInsn(IASTORE);
+            (a._1 + 1, a._2 + 1)
+          }
+          case _ => (a._1 + 1, a._2)
+        }
+      }
+      case e => (a._1 + 1, a._2)
+    })
+  }
+
+  private def loadProcParams(f: CallCmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean, routineDecl: ProcDecl, localEnd: Int)(implicit context: CodeGenContext): (Int, Int) = {
+    f.e.l.foldLeft((0, localEnd))((a, e) => e match {
+      case StoreExpr(ident, isInit) => {
+        routineDecl.params(a._1) match {
+          case Parameter(Some(InOut | Out), _, _, t) => {
+            mv.visitVarInsn(ALOAD, a._2);
+            (a._1 + 1, a._2 + 1)
+          }
+          case _ => {
+            writeExpr(e, mv, scope, insideRoutine)
+            (a._1 + 1, a._2)
+          }
+        }
+      }
+      case e => {
+        writeExpr(e, mv, scope, insideRoutine)
+        (a._1 + 1, a._2)
+      }
+    })
+  }
+
+  private def restoreOutParams(f: CallCmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean, routineDecl: ProcDecl, localEnd: Int)(implicit context: CodeGenContext): Unit = {
+    f.e.l.foldLeft((0, localEnd))((a, e) => {
+      e match {
+        case StoreExpr(ident, isInit) => {
+          routineDecl.params(a._1) match {
+            case Parameter(Some(InOut | Out), _, _, t) => {
+              val write = () => {
+                mv.visitVarInsn(ALOAD, a._2);
+                mv.visitInsn(ICONST_0);
+
+                t.t match {
+                  case IntType | BoolType => mv.visitInsn(IALOAD);
+                  case _ => mv.visitInsn(AALOAD);
+                }
+              }
+
+              writeStoreWrite(ident, write, mv, scope, insideRoutine)
+
+              (a._1 + 1, a._2 + 1)
+            }
+            case _ => (a._1 + 1, a._2)
+          }
+        }
+        case e => (a._1 + 1, a._2)
+      }
+    })
+  }
+
+  def writeListLiteral(l: ListLiteral, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean, listLevel: Int)(implicit context: CodeGenContext) {
     mv.visitIntInsn(BIPUSH, l.l.size) // write array length
 
     val t = returnType(l, scope)(context.st);
-    //    val arrType = ("[" * listLevel) + "Ljava/lang/Object;";
     val arrType = ("[" * listLevel) + "java/lang/Object";
 
     mv.visitTypeInsn(ANEWARRAY, arrType); // type of array must be [Object for a list of [[Object
@@ -226,8 +365,8 @@ trait JVMByteCodeGen extends ContextChecker {
         mv.visitIntInsn(BIPUSH, i);
 
         e match {
-          case LiteralExpr(l: ListLiteral) => writeListLiteral(l, mv, scope, routineCall, listLevel - 1)
-          case _ => writeExpr(e, mv, scope, routineCall)
+          case LiteralExpr(l: ListLiteral) => writeListLiteral(l, mv, scope, insideRoutine, listLevel - 1)
+          case _ => writeExpr(e, mv, scope, insideRoutine)
         }
 
         toJVMType(returnType(e, scope)(context.st)) match {
@@ -488,7 +627,7 @@ trait JVMByteCodeGen extends ContextChecker {
     writeCommands(f.cmds, fun, scope, true)
 
     // load return value onto stack
-    writeStoreAccess(f.returns.ti.i, fun, scope, true)
+    writeStoreRead(f.returns.ti.i, fun, scope, true)
 
     f.returns.ti.t match {
       case IntType | BoolType => fun.visitInsn(IRETURN);
@@ -499,10 +638,23 @@ trait JVMByteCodeGen extends ContextChecker {
     fun.visitEnd();
   }
 
+  def writeProcedure(f: ProcDecl)(implicit context: CodeGenContext) {
+    val scope = context.st.getLocalStoreScope(f.ident);
+    val paramRet = getJVMProcParams(f);
+    val proc = context.cw.visitMethod(ACC_PRIVATE + ACC_STATIC, f.ident.value, paramRet, null, null);
+
+    writeCommands(f.cmds, proc, scope, true)
+
+    proc.visitInsn(RETURN);
+    proc.visitMaxs(0, 0); // ignore ignore
+    proc.visitEnd();
+  }
+
   def writeRoutines()(implicit context: CodeGenContext) {
 
     context.prog.cpsDecl.foreach(r => r match {
       case f: FunDecl => writeFunction(f);
+      case p: ProcDecl => writeProcedure(p);
       case _ => // TODO impl
     })
   }
@@ -518,15 +670,15 @@ trait JVMByteCodeGen extends ContextChecker {
     main.visitEnd();
   }
 
-  def writeListCons(dyadicExpr: DyadicExpr, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) {
+  def writeListCons(dyadicExpr: DyadicExpr, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) {
 
-    writeExpr(dyadicExpr.r, mv, scope, routineCall);
+    writeExpr(dyadicExpr.r, mv, scope, insideRoutine);
     mv.visitMethodInsn(INVOKESTATIC, context.prog.name.value, "$cons", "([Ljava/lang/Object;)[Ljava/lang/Object;");
     mv.visitInsn(DUP)
 
     mv.visitInsn(ICONST_0);
 
-    writeExpr(dyadicExpr.l, mv, scope, routineCall);
+    writeExpr(dyadicExpr.l, mv, scope, insideRoutine);
 
     val lType = returnType(dyadicExpr.l, scope)(context.st);
     lType match {
@@ -537,8 +689,8 @@ trait JVMByteCodeGen extends ContextChecker {
     mv.visitInsn(AASTORE);
   }
 
-  private def writeHeadOpr(monadicExpr: MonadicExpr, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) = {
-    writeExpr(monadicExpr.l, mv, scope, routineCall);
+  private def writeHeadOpr(monadicExpr: MonadicExpr, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
+    writeExpr(monadicExpr.l, mv, scope, insideRoutine);
 
     mv.visitInsn(ICONST_0);
 
@@ -562,8 +714,8 @@ trait JVMByteCodeGen extends ContextChecker {
     }
   }
 
-  private def writeTailOpr(monadicExpr: MonadicExpr, mv: MethodVisitor, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) = {
-    writeExpr(monadicExpr.l, mv, scope, routineCall)
+  private def writeTailOpr(monadicExpr: MonadicExpr, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
+    writeExpr(monadicExpr.l, mv, scope, insideRoutine)
     mv.visitMethodInsn(INVOKESTATIC, context.prog.name.value, "$tail", "([Ljava/lang/Object;)[Ljava/lang/Object;");
   }
 
@@ -632,12 +784,12 @@ trait JVMByteCodeGen extends ContextChecker {
     mv.visitLabel(end)
   }
 
-  def writeCondOr(mv: MethodVisitor, e1: Expr, e2: Expr, scope: Scope, routineCall: Boolean)(implicit context: CodeGenContext) {
+  def writeCondOr(mv: MethodVisitor, e1: Expr, e2: Expr, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) {
     val returnTrue = new Label();
     val end = new Label();
-    writeExpr(e1, mv, scope, routineCall)
+    writeExpr(e1, mv, scope, insideRoutine)
     mv.visitJumpInsn(IFNE, returnTrue)
-    writeExpr(e2, mv, scope, routineCall)
+    writeExpr(e2, mv, scope, insideRoutine)
     mv.visitJumpInsn(IFNE, returnTrue)
     mv.visitInsn(ICONST_0) // false
     mv.visitJumpInsn(GOTO, end)
@@ -651,6 +803,15 @@ trait JVMByteCodeGen extends ContextChecker {
     case BoolType => "Z"
     case ListType(t) => "[Ljava/lang/Object;"
     case Any => "Ljava/lang/Object;"
+  }
+
+  def getJVMProcParams(f: ProcDecl) = {
+    "(" + f.params.map(s => {
+      s.f.get match { // TODO is get right? what are default values?
+        case In => toJVMType(s.ti.t)
+        case _ => "[" + toJVMType(s.ti.t)
+      }
+    }).mkString("") + ")V";
   }
 
 }

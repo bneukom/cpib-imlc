@@ -6,7 +6,7 @@ import sun.org.mozilla.javascript.internal.ast.AstNode
 
 object AST {
 
-  val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init", "inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip", "then", "true", "var", "while", "head", "tail", "length")
+  final val keywords = List("bool", "call", "const", "copy", "debugin", "debugout", "div", "do", "else", "endfun", "endif", "endproc", "endprogram", "endwhile", "false", "fun", "global", "if", "in", "init", "inout", "int", "local", "mod", "not", "out", "proc", "program", "ref", "returns", "skip", "then", "true", "var", "while", "head", "tail", "length")
 
   class ASTNode extends Positional
 

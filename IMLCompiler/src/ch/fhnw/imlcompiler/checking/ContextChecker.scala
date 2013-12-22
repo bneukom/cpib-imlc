@@ -58,7 +58,7 @@ trait ContextChecker {
         val expectedType = t match {
           case PlusOpr | MinusOpr | DivOpr | TimesOpr | ModOpr | EQ | NE | GT | LT | GE | LE => IntType
           case Cand | Cor => BoolType
-          case _ => throw new CompilerException("internal compiler error");
+          case _ => throw new IllegalStateException
         }
 
         if (!returnType(lhs, scope).matches(expectedType)) throw TypeMismatchError(lhs, expectedType, lhsType)
@@ -351,7 +351,7 @@ trait ContextChecker {
 
   def checkParameters(decl: Decl, tupleExpr: TupleExpr, scope: Scope, looped: Boolean = false, elseBranch: Boolean = false, initialized: HashSet[Store])(implicit context: SymbolTable) {
     decl match {
-      case StoreDecl(_, i) => throw new CompilerException("internal compiler error");
+      case StoreDecl(_, i) => throw new IllegalStateException
       case FunDecl(identifier, params, r, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope, looped, elseBranch, initialized)
       case ProcDecl(identifier, params, imports, cpsDecl, cmd) => checkMethodParameters(tupleExpr, params, scope, looped, elseBranch, initialized)
     }
@@ -368,7 +368,7 @@ trait ContextChecker {
 
       // TODO default values??
       val flowMode = element._2.f.getOrElse(() => In);
-      val changeMode = element._2.c.getOrElse(() => Var);
+      val changeMode = element._2.c.getOrElse(() => Const);
 
       // check flow mode (IML36)
       //      flowMode match {
