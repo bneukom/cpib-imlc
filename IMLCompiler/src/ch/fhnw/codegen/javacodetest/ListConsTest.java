@@ -1,13 +1,8 @@
 package ch.fhnw.codegen.javacodetest;
 
+import java.util.Arrays;
+
 public class ListConsTest {
-
-	public static void main(String[] args) {
-		Object[] o = new Object[3];
-		o[0] = "a";
-		System.out.println(o);
-	}
-
 	// // globals
 	// private static int intValue = 0; // intValue:int;
 	// private static Object[] list; // list:[int];

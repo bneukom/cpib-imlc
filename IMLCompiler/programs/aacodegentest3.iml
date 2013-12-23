@@ -1,16 +1,24 @@
 program aacodegentest3() 
 global 
  var v:int;
- var v2:int;
- proc test(inout copy var p:int, in copy var p2:int, inout copy var p3:int)
+ var l:[int];
+ proc test(inout copy var p:int)
  local
   var c:int
  do
-  p := p2 * 3
+  p := p * p
+ endproc;
+ proc test2(inout copy var l:[int])
+ do
+  l := 0 :: l
  endproc
 do 
+/*
  v init := 20;
- v2 init := 155;
- call test(v, 100, v2);
- debugout v
+ call test(v);
+ debugout v;
+*/
+ l init := [1,2,3];
+ call test2(l);
+ debugout l
 endprogram

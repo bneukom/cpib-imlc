@@ -124,7 +124,7 @@ trait JVMByteCodeGen extends ContextChecker {
 
           imlType match {
             case IntType | BoolType => mv.visitInsn(IALOAD);
-            case _ => mv.visitInsn(AALOAD);
+            case _ => mv.visitInsn(AALOAD); mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
           }
         }
         case _ => {
@@ -155,7 +155,7 @@ trait JVMByteCodeGen extends ContextChecker {
           write();
           imlType match {
             case IntType | BoolType => mv.visitInsn(IASTORE);
-            case _ => mv.visitInsn(AASTORE);
+            case _ => mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;"); mv.visitInsn(AASTORE);
           }
         }
         case _ => {
@@ -292,7 +292,12 @@ trait JVMByteCodeGen extends ContextChecker {
             mv.visitVarInsn(ALOAD, a._2);
             mv.visitInsn(ICONST_0);
             writeStoreRead(ident, mv, scope, insideRoutine)
-            mv.visitInsn(IASTORE);
+            
+            t.t match {
+              case IntType | BoolType => mv.visitInsn(IASTORE);
+              case _ => mv.visitInsn(AASTORE);
+            }
+            
             (a._1 + 1, a._2 + 1)
           }
           case _ => (a._1 + 1, a._2)
@@ -335,7 +340,7 @@ trait JVMByteCodeGen extends ContextChecker {
 
                 t.t match {
                   case IntType | BoolType => mv.visitInsn(IALOAD);
-                  case _ => mv.visitInsn(AALOAD);
+                  case _ => mv.visitInsn(AALOAD); mv.visitTypeInsn(CHECKCAST, "[Ljava/lang/Object;");
                 }
               }
 
@@ -494,7 +499,7 @@ trait JVMByteCodeGen extends ContextChecker {
     mv.visitInsn(ICONST_1);
     mv.visitInsn(ISUB);
     mv.visitVarInsn(ALOAD, 3);
-    mv.visitMethodInsn(INVOKESTATIC, "ch/fhnw/codegen/javacodetest/ListConsTest", "deepCopy", "(Ljava/lang/Object;)Ljava/lang/Object;");
+    mv.visitMethodInsn(INVOKESTATIC, context.prog.name.value, "$deepCopy", "(Ljava/lang/Object;)Ljava/lang/Object;");
     mv.visitInsn(AASTORE);
     val l8 = new Label();
     mv.visitJumpInsn(GOTO, l8);
@@ -809,7 +814,10 @@ trait JVMByteCodeGen extends ContextChecker {
     "(" + f.params.map(s => {
       s.f.get match { // TODO is get right? what are default values?
         case In => toJVMType(s.ti.t)
-        case _ => "[" + toJVMType(s.ti.t)
+        case _ => s.ti.t match {
+          case IntType | BoolType => "[" + toJVMType(s.ti.t);
+          case _ => "[Ljava/lang/Object;"
+        }
       }
     }).mkString("") + ")V";
   }
