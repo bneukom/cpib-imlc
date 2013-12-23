@@ -43,6 +43,7 @@ trait JVMByteCodeGen extends ContextChecker {
     cmd match {
       case c: BecomesCmd => writeBecomesCmd(c, mv, scope, insideRoutine);
       case c: OutputCmd => writeOutputCmd(c, mv, scope, insideRoutine);
+      case c: InputCmd => writeInputCmd(c, mv, scope, insideRoutine);
       case c: IfCmd => writeIfCmd(c, mv, scope, insideRoutine)
       case c: SkipCmd => mv.visitInsn(NOP)
       case c: WhileCmd => writeWhileCmd(c, mv, scope, insideRoutine);
@@ -96,6 +97,34 @@ trait JVMByteCodeGen extends ContextChecker {
 
   }
 
+  def writeInputCmd(o: InputCmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
+    o.expr match {
+      case s: StoreExpr => {
+        val store = scope.get(s.i)
+
+        val writeInput = () => {
+          mv.visitFieldInsn(GETSTATIC, "java/lang/System", "out", "Ljava/io/PrintStream;");
+          mv.visitLdcInsn("enter value for store " + store.typedIdent.i.value + ":" + store.typedIdent.t);
+          mv.visitMethodInsn(INVOKEVIRTUAL, "java/io/PrintStream", "println", "(Ljava/lang/String;)V");
+
+          mv.visitTypeInsn(NEW, "java/util/Scanner");
+          mv.visitInsn(DUP);
+          mv.visitFieldInsn(GETSTATIC, "java/lang/System", "in", "Ljava/io/InputStream;");
+          mv.visitMethodInsn(INVOKESPECIAL, "java/util/Scanner", "<init>", "(Ljava/io/InputStream;)V");
+
+          store.typedIdent.t match {
+            case IntType => mv.visitMethodInsn(INVOKEVIRTUAL, "java/util/Scanner", "nextInt", "()I");
+            case BoolType => mv.visitMethodInsn(INVOKEVIRTUAL, "java/util/Scanner", "nextBoolean", "()Z");
+            case _ => throw new IllegalStateException("tbd"); // TODO implement lists
+          }
+        }
+        
+        writeStoreAssignment(store.typedIdent.i, writeInput, mv, scope, insideRoutine)
+      }
+      case _ => throw new IllegalStateException;
+    }
+  }
+
   //  def writeExprs(exprs: List[Expr], mv: MethodVisitor, scope: ListBuffer[Store], insideRoutine: Boolean = false)(implicit context: CodeGenContext) = exprs.foreach(writeExpr(_, mv, scope, insideRoutine))
   def writeExpr(expr: Expr, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
     expr match {
@@ -142,7 +171,7 @@ trait JVMByteCodeGen extends ContextChecker {
   }
 
   // store write
-  def writeStoreWrite(i: Ident, write: () => Unit, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
+  def writeStoreAssignment(i: Ident, write: () => Unit, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
     val store = scope.find(_.typedIdent.i == i).get;
     val imlType = store.typedIdent.t
     if ((insideRoutine || store.synthetic) && !store.globImp) {
@@ -176,7 +205,7 @@ trait JVMByteCodeGen extends ContextChecker {
   def writeBecomesCmd(b: BecomesCmd, mv: MethodVisitor, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) = {
     val writeRhsExpr = () => writeExpr(b.rhs, mv, scope, insideRoutine);
     b.lhs match {
-      case e: StoreExpr => writeStoreWrite(e.i, writeRhsExpr, mv, scope, insideRoutine)
+      case e: StoreExpr => writeStoreAssignment(e.i, writeRhsExpr, mv, scope, insideRoutine)
       case _ => throw new IllegalStateException
     }
   }
@@ -292,12 +321,12 @@ trait JVMByteCodeGen extends ContextChecker {
             mv.visitVarInsn(ALOAD, a._2);
             mv.visitInsn(ICONST_0);
             writeStoreRead(ident, mv, scope, insideRoutine)
-            
+
             t.t match {
               case IntType | BoolType => mv.visitInsn(IASTORE);
               case _ => mv.visitInsn(AASTORE);
             }
-            
+
             (a._1 + 1, a._2 + 1)
           }
           case _ => (a._1 + 1, a._2)
@@ -344,7 +373,7 @@ trait JVMByteCodeGen extends ContextChecker {
                 }
               }
 
-              writeStoreWrite(ident, write, mv, scope, insideRoutine)
+              writeStoreAssignment(ident, write, mv, scope, insideRoutine)
 
               (a._1 + 1, a._2 + 1)
             }

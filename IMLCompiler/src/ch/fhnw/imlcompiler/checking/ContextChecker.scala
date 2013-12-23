@@ -19,7 +19,7 @@ trait ContextChecker {
   case class UndefinedStoreException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined store '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class UndefinedMethodException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") undefined method '" + n.value + "' used\n\n" + n.pos.longString + "\nAST: " + n);
   case class ProcReturnException(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") proc method '" + n.value + "' do not have return types\n\n" + n.pos.longString + "\nAST: " + n);
-  case class BranchNotAllInitialized(c: IfCmd, stores: HashSet[Store]) extends CompilerException("(" + c.pos.line + ":" + c.pos.column + ") the stores [" + (stores.map(s => s.typedIdent.i.value.toString).reduceLeft[String] { (acc, n) => acc + ", " + n }) + "] have not been initialized in both if branches\n\nAST: " + c);
+  case class BranchNotAllInitialized(c: IfCmd, s: Store) extends CompilerException("(" + c.pos.line + ":" + c.pos.column + ") the store " + s.typedIdent.i.value + " might not have been initialized \n\nAST: " + c);
   case class InvalidParamaterAmount(n: TupleExpr, required: Int, actual: Int) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid amount of parameters " + actual + " required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class InvalidParamater(n: Expr, required: Type, actual: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid parameter type '" + actual + "' required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class DuplicateInitialize(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") store: '" + n.value + "' has already been initialized\n\n" + n.pos.longString + "\nAST: " + n);
@@ -196,8 +196,8 @@ trait ContextChecker {
     // TODO pass if is lvalue and looped expr to ckeckExpr sub calls?
     e match {
       case DyadicExpr(lhs, opr, rhs) =>
-        checkExpr(lhs, scope, lvalue, loopedExpr, elseBranch, initializedStores);
-        checkExpr(rhs, scope, lvalue, loopedExpr, elseBranch, initializedStores);
+        checkExpr(lhs, scope, true, loopedExpr, elseBranch, initializedStores);
+        checkExpr(rhs, scope, false, loopedExpr, elseBranch, initializedStores);
 
         checkDyadicOpr(lhs, opr, rhs, scope);
       case MonadicExpr(rhs, opr) =>
@@ -224,10 +224,10 @@ trait ContextChecker {
         val toType = returnType(to, tempScope); if (!toType.matches(IntType)) throw TypeMismatchError(to, IntType, toType);
 
         // check the return type
-        checkExpr(ret, tempScope, lvalue, loopedExpr, elseBranch, tempInitialized)
+        checkExpr(ret, tempScope, false, loopedExpr, elseBranch, tempInitialized)
         val retType = returnType(ret, tempScope); if (!retType.matches(IntType)) throw TypeMismatchError(ret, IntType, retType);
 
-        checkExpr(where, tempScope, lvalue, loopedExpr, elseBranch, tempInitialized)
+        checkExpr(where, tempScope, false, loopedExpr, elseBranch, tempInitialized)
         val whereType = returnType(where, tempScope); if (!whereType.matches(BoolType)) throw TypeMismatchError(where, BoolType, whereType);
       }
       case FunCallExpr(ident, tupleExpr) => {
@@ -238,24 +238,31 @@ trait ContextChecker {
           }
         }
       }
-      case StoreExpr(i, init) => {
-        scope.find(s => s.typedIdent.i == i) match {
-          case None => throw UndefinedStoreException(i);
+      case storeExpr: StoreExpr => {
+        scope.find(s => s.typedIdent.i == storeExpr.i) match {
+          case None => throw UndefinedStoreException(storeExpr.i);
           case Some(s) => {
-            if (init) {
+            if (storeExpr.isInitialization) {
+
               // can not initialize a store inside of a loop
-              if (loopedExpr) throw LoopedInit(i)
+              if (loopedExpr) throw LoopedInit(storeExpr.i)
+
+              // const modification
+              if (lvalue && s.change.forall(c => c == Const)) throw ConstModification(storeExpr.i);
 
               // attempt of initializing in/inout store
-              s.flow.foreach(f => if (f == In || f == InOut) throw InStoreInitialization(i, f))
+              s.flow.foreach(f => if (f == In || f == InOut) throw InStoreInitialization(storeExpr.i, f))
 
-              if (initializedStores.find(s => s.typedIdent.i == i).isDefined) throw DuplicateInitialize(i);
+              if (initializedStores.find(s => s.typedIdent.i == storeExpr.i).isDefined) throw DuplicateInitialize(storeExpr.i);
+              if (!lvalue) throw InvalidLValue(storeExpr)
+
+              // TODO 23.12.2013 is this right?
+              initializedStores += s;
             } else {
-              val store = initializedStores.find(s => s.typedIdent.i == i);
-              val sc = scope.find(s => s.typedIdent.i == i);
+              val store = initializedStores.find(s => s.typedIdent.i == storeExpr.i);
+              val sc = scope.find(s => s.typedIdent.i == storeExpr.i);
 
-              if (!store.isDefined && !sc.forall(f => f.flow == Some(In) || f.flow == Some(InOut))) throw StoreNotInitialized(i);
-              if (lvalue && s.change.forall(c => c == Const)) throw ConstModification(i);
+              if (!store.isDefined && !sc.forall(f => f.flow == Some(In) || f.flow == Some(InOut))) throw StoreNotInitialized(storeExpr.i);
             }
           }
         }
@@ -304,14 +311,20 @@ trait ContextChecker {
 
         val ifInits = initializedStores.clone;
         val elseInits = initializedStores.clone;
+
+        println(ifInits)
+        println(scope)
+
         checkCpsCmd(ifCmd.ifCmd, scope, loopedCmd, false, ifInits);
         checkCpsCmd(ifCmd.elseCmd, scope, loopedCmd, true, elseInits);
+
+        println(ifInits)
 
         initializedStores ++= (ifInits ++ elseInits);
 
         val diff = ifInits.diff(elseInits)
 
-        if (diff.size > 0) throw BranchNotAllInitialized(ifCmd, diff)
+        if (diff.size > 0) throw BranchNotAllInitialized(ifCmd, diff.head)
       }
       case WhileCmd(e, cmd) => {
         if (returnType(e, scope) != BoolType) throw TypeMismatchError(e, BoolType, returnType(e, scope));
@@ -468,7 +481,7 @@ trait ContextChecker {
   def loadLocalParams(params: List[Parameter], scope: Scope) {
     params.foreach(param => {
 
-      val paramStore = new Store(param.ti, param.m, param.c, param.f);
+      val paramStore = new Store(param.ti, Some(param.m.getOrElse(Copy)), Some(param.c.getOrElse(Const)), Some(param.f.getOrElse(In)));
 
       if (!scope.exists(param.ti.i)) scope += paramStore; else throw new DuplicateIdentException(param.ti.i);
 
@@ -501,19 +514,15 @@ class CompilerException(v: String) extends RuntimeException(v) {
 
 case class Store(val typedIdent: TypedIdent, val mech: Option[MechMode], val change: Option[ChangeMode], val flow: Option[FlowMode], val globImp: Boolean = false, val synthetic: Boolean = false)
 
-// TODO use this instead of listbuffer
 case class Scope(private val _stores: ListBuffer[Store] = ListBuffer()) {
   def get(s: String) = _stores.find(_.typedIdent.i.value == s).get
+  def get(i: Ident) = _stores.find(_.typedIdent.i == i).get
   def exists(i: Ident) = _stores.exists(_.typedIdent.i == i)
   def +=(s: Store) = _stores += s;
   def find(p: Store => Boolean) = _stores.find(p)
   def stores() = _stores;
 }
 case class SymbolTable {
-  //  val globalStores = ListBuffer[Store]();
-  //  val localStores = HashMap[Ident, ListBuffer[Store]]();
-  //  val routines = HashMap[Ident, Decl]();
-
   private val _globalStores = Scope();
   private val _localStores = HashMap[Ident, Scope]();
   private val _routines = HashMap[Ident, Decl]();

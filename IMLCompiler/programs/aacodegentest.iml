@@ -1,6 +1,6 @@
 program aacodegentest() 
 global 
-fun isPrime(in copy p:int) returns var b:bool
+fun isPrime(in copy const p:int) returns var b:bool
 global
 local
 	var c:int
@@ -22,25 +22,23 @@ do
 	endif
 endfun;
 
-fun sum(in copy l:[int]) returns var r:int
+fun sum(in copy const l:[int]) returns var r:int
+local 
+var x:int
 do
 	if length l == 0 do
 		r init := 0
 	else
-		r init := head l + sum(tail l)
+		r := head l + sum(tail l)
 	endif
 endfun;
 
 var l:[int];
-var sum:int
+var numPrimes:int
 do 
- /*	
- l init := { x | x from 990 + 10 to 0 when isPrime(x)  };
- sum init := sum(l);
+ debugin numPrimes init;
+ l init := { x | x from 0 to numPrimes when isPrime(x) };
  debugout l;
- debugout sum;
- */
- l init := { x | x from 0 to 100 when isPrime(x) };
- debugout l;
+ debugout head tail tail tail tail l;
  debugout sum(l)
 endprogram

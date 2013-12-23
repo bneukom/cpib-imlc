@@ -1,8 +1,15 @@
 package ch.fhnw.codegen.javacodetest;
 
-import java.util.Arrays;
+import java.util.Scanner;
 
 public class ListConsTest {
+	
+	public static void main(String[] args) {
+		System.out.println("enter value for store");
+		boolean nextInt = new Scanner(System.in).nextBoolean();
+		System.out.println(nextInt);
+	}
+	
 	// // globals
 	// private static int intValue = 0; // intValue:int;
 	// private static Object[] list; // list:[int];

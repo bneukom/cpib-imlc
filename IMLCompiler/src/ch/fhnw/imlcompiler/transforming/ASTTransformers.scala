@@ -58,6 +58,10 @@ trait ASTTransformers {
           val transformedExpr = transformExpr(e, scope)
           (transformedExpr._3, transformedExpr._2 :+ OutputCmd(transformedExpr._1))
         }
+        case InputCmd(e) => {
+          val transformedExpr = transformExpr(e, scope)
+          (transformedExpr._3, transformedExpr._2 :+ InputCmd(transformedExpr._1))
+        }
         case c: CallCmd => {
           val fold = c.e.l.foldRight(List[(Expr, List[Cmd], List[Decl])]())((expr, l) => transformExpr(expr, scope) :: l);
           (fold.map(_._3).flatten, fold.map(_._2).flatten :+ CallCmd(c.i, TupleExpr(fold.map(_._1))))
