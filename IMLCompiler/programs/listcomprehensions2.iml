@@ -23,5 +23,6 @@ endfun;
 
 var list:[int]
 do
-	list init := { x | x from 0 to 100 when isPrime(x) }
+	list init := { x | x from 0 to 100 when isPrime(x) };
+	debugout list
 endprogram

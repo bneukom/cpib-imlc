@@ -42,6 +42,5 @@ do
  */
  l init := { x | x from 0 to 100 when isPrime(x) };
  debugout l;
- debugout sum(l);
- debugout length l * length { x | x from 0 to 10 when true }
+ debugout sum(l)
 endprogram

@@ -117,8 +117,8 @@ trait JVMByteCodeGen extends ContextChecker {
     if ((insideRoutine || store.synthetic) && !store.globImp) { // inside method or synthetic store access
       val index = if (insideRoutine) scope.stores.filter(!_.globImp).indexWhere(_.typedIdent.i == ident) else scope.stores.filter(_.synthetic).indexWhere(_.typedIdent.i == ident) + 1; // + 1 beacuse main param arguments
 
-      store.flow.get match {
-        case Out | InOut => {
+      store.flow match {
+        case Some(Out) | Some(InOut) => {
           mv.visitVarInsn(ALOAD, index);
           mv.visitInsn(ICONST_0);
 
@@ -148,8 +148,8 @@ trait JVMByteCodeGen extends ContextChecker {
     if ((insideRoutine || store.synthetic) && !store.globImp) {
       val index = if (insideRoutine) scope.stores.filter(!_.globImp).indexWhere(_.typedIdent.i == i) else scope.stores.filter(_.synthetic).indexWhere(_.typedIdent.i == i) + 1; // + 1 beacuse main param arguments
 
-      store.flow.get match {
-        case Out | InOut => {
+      store.flow match {
+        case Some(Out) | Some(InOut) => {
           mv.visitVarInsn(ALOAD, index);
           mv.visitInsn(ICONST_0);
           write();
