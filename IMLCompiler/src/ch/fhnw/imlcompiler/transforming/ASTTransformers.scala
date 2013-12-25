@@ -134,7 +134,7 @@ trait ASTTransformers {
     val decrementer = BecomesCmd(StoreExpr(countIdent, false), DyadicExpr(StoreExpr(countIdent, false), MinusOpr, LiteralExpr(IntLiteral(1))))
 
     val lowToHighWhile = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), GE, lexpr.from), whereCmd :: decrementer :: Nil)
-    val highToLowWhile = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), LE, lexpr.from), whereCmd :: incrementer :: Nil)
+    val highToLowWhile = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), LT, lexpr.from), whereCmd :: incrementer :: Nil)
 
     val topDownSelector = IfCmd(DyadicExpr(lexpr.to, GT, lexpr.from), lowToHighWhile :: Nil, highToLowWhile :: Nil)
 

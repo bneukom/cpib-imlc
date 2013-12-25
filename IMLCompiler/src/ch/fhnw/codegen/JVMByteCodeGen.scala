@@ -118,7 +118,7 @@ trait JVMByteCodeGen extends ContextChecker {
             case _ => throw new IllegalStateException("tbd"); // TODO implement lists
           }
         }
-        
+
         writeStoreAssignment(store.typedIdent.i, writeInput, mv, scope, insideRoutine)
       }
       case _ => throw new IllegalStateException;
@@ -389,7 +389,7 @@ trait JVMByteCodeGen extends ContextChecker {
     mv.visitIntInsn(BIPUSH, l.l.size) // write array length
 
     val t = returnType(l, scope)(context.st);
-    val arrType = ("[" * listLevel) + "java/lang/Object";
+    val arrType = if (listLevel <= 1) "java/lang/Object" else ("[" * listLevel) + "Ljava/lang/Object;";
 
     mv.visitTypeInsn(ANEWARRAY, arrType); // type of array must be [Object for a list of [[Object
 

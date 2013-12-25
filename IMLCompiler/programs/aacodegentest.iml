@@ -29,7 +29,7 @@ do
 	if length l == 0 do
 		r init := 0
 	else
-		r := head l + sum(tail l)
+		r init := head l + sum(tail l)
 	endif
 endfun;
 
@@ -39,6 +39,6 @@ do
  debugin numPrimes init;
  l init := { x | x from 0 to numPrimes when isPrime(x) };
  debugout l;
- debugout head tail tail tail tail l;
- debugout sum(l)
+ debugout head l * 43;
+ debugout tail l :: [[-100]] * 43
 endprogram

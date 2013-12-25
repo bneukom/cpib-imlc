@@ -24,7 +24,7 @@ trait ContextChecker {
   case class InvalidParamater(n: Expr, required: Type, actual: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid parameter type '" + actual + "' required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class DuplicateInitialize(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") store: '" + n.value + "' has already been initialized\n\n" + n.pos.longString + "\nAST: " + n);
   case class StoreNotInitialized(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") store: '" + n.value + "' has not been initialized\n\n" + n.pos.longString + "\nAST: " + n);
-  case class InvalidLValue(n: Expr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid lvalue\n\n" + n.pos.longString + "\nAST: " + n);
+  case class InvalidstoreAssignment(n: Expr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid storeAssignment\n\n" + n.pos.longString + "\nAST: " + n);
   case class ConstModification(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") identifier '" + n.value + "' is const and can not be modified\n\n" + n.pos.longString + "\nAST: " + n);
   case class InStoreInitialization(n: Ident, f: FlowMode) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing " + f.toString().toLowerCase() + " mode store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class LoopedInit(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing store: " + n.value + " inside a loop body\n\n" + n.pos.longString + "\nAST: " + n);
@@ -192,21 +192,21 @@ trait ContextChecker {
     }
   }
 
-  def checkExpr(e: Expr, scope: Scope, lvalue: Boolean = false, loopedExpr: Boolean = false, elseBranch: Boolean = false, initializedStores: HashSet[Store])(implicit symbolTable: SymbolTable) {
-    // TODO pass if is lvalue and looped expr to ckeckExpr sub calls?
+  def checkExpr(e: Expr, scope: Scope, storeAssignment: Boolean = false, loopedExpr: Boolean = false, elseBranch: Boolean = false, initializedStores: HashSet[Store])(implicit symbolTable: SymbolTable) {
+    // TODO pass if is storeAssignment and looped expr to ckeckExpr sub calls?
     e match {
       case DyadicExpr(lhs, opr, rhs) =>
-        checkExpr(lhs, scope, true, loopedExpr, elseBranch, initializedStores);
+        checkExpr(lhs, scope, storeAssignment, loopedExpr, elseBranch, initializedStores);
         checkExpr(rhs, scope, false, loopedExpr, elseBranch, initializedStores);
 
         checkDyadicOpr(lhs, opr, rhs, scope);
       case MonadicExpr(rhs, opr) =>
-        checkExpr(rhs, scope, lvalue, loopedExpr, elseBranch, initializedStores);
+        checkExpr(rhs, scope, false, loopedExpr, elseBranch, initializedStores);
 
         checkMonadicOpr(rhs, opr, scope);
       case LiteralExpr(e) => {
         e match {
-          case l: ListLiteral => checkListLiteral(l, scope, lvalue, loopedExpr, elseBranch, initializedStores)
+          case l: ListLiteral => checkListLiteral(l, scope, false, loopedExpr, elseBranch, initializedStores)
           case _ =>
         }
       }
@@ -247,20 +247,21 @@ trait ContextChecker {
               // can not initialize a store inside of a loop
               if (loopedExpr) throw LoopedInit(storeExpr.i)
 
-              // const modification
-              if (lvalue && s.change.forall(c => c == Const)) throw ConstModification(storeExpr.i);
-
               // attempt of initializing in/inout store
               s.flow.foreach(f => if (f == In || f == InOut) throw InStoreInitialization(storeExpr.i, f))
 
               if (initializedStores.find(s => s.typedIdent.i == storeExpr.i).isDefined) throw DuplicateInitialize(storeExpr.i);
-              if (!lvalue) throw InvalidLValue(storeExpr)
+              if (!storeAssignment) throw InvalidstoreAssignment(storeExpr)
 
-              // TODO 23.12.2013 is this right?
               initializedStores += s;
             } else {
               val store = initializedStores.find(s => s.typedIdent.i == storeExpr.i);
               val sc = scope.find(s => s.typedIdent.i == storeExpr.i);
+
+              // const modification
+              if (storeAssignment && s.change.forall(c => c == Const)) {
+                throw ConstModification(storeExpr.i);
+              }
 
               if (!store.isDefined && !sc.forall(f => f.flow == Some(In) || f.flow == Some(InOut))) throw StoreNotInitialized(storeExpr.i);
             }
@@ -282,11 +283,9 @@ trait ContextChecker {
 
         lhs match {
           case StoreExpr(i, isInit) => {
-            // TODO check for const
             checkExpr(lhs, scope, true, loopedCmd, elseBranch, initializedStores);
-            initializedStores += scope.find(s => s.typedIdent.i == i).get;
           }
-          case _ => throw InvalidLValue(lhs);
+          case _ => throw InvalidstoreAssignment(lhs);
         }
 
         val typeRhs = returnType(rhs, scope);
@@ -334,7 +333,7 @@ trait ContextChecker {
       case InputCmd(e) => {
         e match {
           case StoreExpr(i, init) => checkExpr(e, scope, true, loopedCmd, elseBranch, initializedStores)
-          case _ => throw InvalidLValue(e)
+          case _ => throw InvalidstoreAssignment(e)
         }
       }
       case OutputCmd(e) => {
@@ -344,10 +343,10 @@ trait ContextChecker {
     }
   }
 
-  def checkListLiteral(listLiteral: ListLiteral, scope: Scope, lvalue: Boolean = false, loopedExpr: Boolean = false, elseBranch: Boolean = false, initializedStores: HashSet[Store])(implicit context: SymbolTable) {
+  def checkListLiteral(listLiteral: ListLiteral, scope: Scope, storeAssignment: Boolean = false, loopedExpr: Boolean = false, elseBranch: Boolean = false, initializedStores: HashSet[Store])(implicit context: SymbolTable) {
     // first check if all expressions are valid
     listLiteral.l.foreach(e => {
-      checkExpr(e, scope, lvalue, loopedExpr, elseBranch, initializedStores)
+      checkExpr(e, scope, storeAssignment, loopedExpr, elseBranch, initializedStores)
     })
 
     // check if types of (e cross e) matches
@@ -379,10 +378,11 @@ trait ContextChecker {
       // check if the given expression is valid
       checkExpr(element._1, scope, false, looped, elseBranch, initialized)
 
-      // TODO default values??
+      // TODO default values?? (
       val flowMode = element._2.f.getOrElse(() => In);
       val changeMode = element._2.c.getOrElse(() => Const);
 
+      // TODO 
       // check flow mode (IML36)
       //      flowMode match {
       //        case In => {

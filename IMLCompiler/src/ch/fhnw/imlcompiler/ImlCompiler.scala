@@ -13,7 +13,7 @@ object ImlCompiler extends IMLParsers with ContextChecker with ASTTransformers w
 
   def main(args: Array[String]) {
 
-    val file = scala.io.Source.fromFile("programs/aacodegentest3.iml")
+    val file = scala.io.Source.fromFile("programs/aacodegentest.iml")
     val imlcode = file.mkString
     file.close()
 
