@@ -311,13 +311,8 @@ trait ContextChecker {
         val ifInits = initializedStores.clone;
         val elseInits = initializedStores.clone;
 
-        println(ifInits)
-        println(scope)
-
         checkCpsCmd(ifCmd.ifCmd, scope, loopedCmd, false, ifInits);
         checkCpsCmd(ifCmd.elseCmd, scope, loopedCmd, true, elseInits);
-
-        println(ifInits)
 
         initializedStores ++= (ifInits ++ elseInits);
 

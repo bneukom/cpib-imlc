@@ -236,6 +236,7 @@ trait JVMByteCodeGen extends ContextChecker {
       case ConsOpr =>
         writeListCons(dyadicExpr, mv, scope, insideRoutine);
       case Cor => writeCondOr(mv, dyadicExpr.l, dyadicExpr.r, scope, insideRoutine)
+      case Cand => writeCondAnd(mv, dyadicExpr.l, dyadicExpr.r, scope, insideRoutine)
     }
   }
 
@@ -829,6 +830,20 @@ trait JVMByteCodeGen extends ContextChecker {
     mv.visitJumpInsn(GOTO, end)
     mv.visitLabel(returnTrue)
     mv.visitInsn(ICONST_1) // true
+    mv.visitLabel(end)
+  }
+
+  def writeCondAnd(mv: MethodVisitor, e1: Expr, e2: Expr, scope: Scope, insideRoutine: Boolean)(implicit context: CodeGenContext) {
+    val returnFalse = new Label();
+    val end = new Label();
+    writeExpr(e1, mv, scope, insideRoutine)
+    mv.visitJumpInsn(IFEQ, returnFalse)
+    writeExpr(e2, mv, scope, insideRoutine)
+    mv.visitJumpInsn(IFEQ, returnFalse)
+    mv.visitInsn(ICONST_1) /* return true */
+    mv.visitJumpInsn(GOTO, end)
+    mv.visitLabel(returnFalse)
+    mv.visitInsn(ICONST_0) /* return false */
     mv.visitLabel(end)
   }
 

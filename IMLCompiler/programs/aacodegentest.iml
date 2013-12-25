@@ -1,44 +1,54 @@
 program aacodegentest() 
 global 
-fun isPrime(in copy const p:int) returns var b:bool
-global
-local
-	var c:int
-do
-	c init := 2;
-	
-	if p > 1 do
-		b init := true;
-		while c < p do
-			if p mod c == 0 do
-				b := false
-			else
-				skip
-			endif;
-			c := c + 1
-		endwhile
-	else
-		b init := false
-	endif
-endfun;
+	fun isPrime(in copy const p:int) returns var b:bool
+	global
+	local
+		var c:int
+	do
+		c init := 2;
+		
+		if p > 1 do
+			b init := true;
+			while c < p do
+				if p mod c == 0 do
+					b := false
+				else
+					skip
+				endif;
+				c := c + 1
+			endwhile
+		else
+			b init := false
+		endif
+	endfun;
 
-fun sum(in copy const l:[int]) returns var r:int
-local 
-var x:int
-do
-	if length l == 0 do
-		r init := 0
-	else
-		r init := head l + sum(tail l)
-	endif
-endfun;
+	fun sum(in copy const l:[int]) returns var r:int
+	local 
+	var x:int
+	do
+		if length l == 0 do
+			r init := 0
+		else
+			r init := head l + sum(tail l)
+		endif
+	endfun;
 
-var l:[int];
-var numPrimes:int
+	fun reverse(in copy const l:[int], in copy const acc:[int]) returns var r:[int]
+	do
+		if length l == 0 do
+			r init := acc
+		else
+			r init := reverse(tail l, head l :: acc)
+		endif
+	endfun;
+
+	var l:[int];
+	var max:int
 do 
- debugin numPrimes init;
- l init := { x | x from 0 to numPrimes when isPrime(x) };
- debugout l;
- debugout head l * 43;
- debugout tail l :: [[-100]] * 43
+	debugin max init;
+	//l init := { x | x from max to 0 when isPrime(x)};
+	l init := { x | x from max to 0 when true};
+	debugout l;
+	debugout reverse(l, []);
+	debugout sum(l)
 endprogram
