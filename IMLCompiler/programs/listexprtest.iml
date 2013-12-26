@@ -1,0 +1,8 @@
+program listexprtest() 
+global 
+	var l:[[int]];
+	var max:int
+do 
+	l init := [];
+	l := { x | x from 0 to max when true} :: l
+endprogram

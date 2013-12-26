@@ -6,38 +6,57 @@ import Document._
 import ch.fhnw.imlcompiler.parsing.IMLParsers
 import ch.fhnw.imlcompiler.transforming.ASTTransformers
 import ch.fhnw.codegen.JVMByteCodeGen
+import java.io.File
+import ch.fhnw.imlcompiler.checking.ContextChecker
+import ch.fhnw.imlcompiler.checking.CompilerException
 
 // TODO what are default modes?
 // TODO implement commandline interface
 object ImlCompiler extends IMLParsers with ContextChecker with ASTTransformers with JVMByteCodeGen {
 
   def main(args: Array[String]) {
+    compile("programs/divisibility.iml", true)
+  }
 
-    val file = scala.io.Source.fromFile("programs/aacodegentest.iml")
+  def compile(fileName: String, debug: Boolean) = {
+    val file = scala.io.Source.fromFile(fileName)
     val imlcode = file.mkString
     file.close()
 
     try {
       // parse
       val program = parse(imlcode)
-      println("Parse Successful:")
-      println(program)
-      println()
+
+      if (debug) {
+        println("Parse Successful:")
+        println(program)
+        println()
+      }
 
       // context check
       val symbolTable = contextCheck(program);
-      println("Context Checking Successful")
-      println()
 
+      if (debug) {
+        println("Context Checking Successful")
+        println()
+      }
+      
       // code transformations (for example list expressions)
       val transformed = transform(program, symbolTable);
-      println("AST Transformed\n")
-      println((transformed))
-      println()
 
+      if (debug) {
+        println("AST Transformed\n")
+        println((transformed))
+        println()
+      }
+      
       // generate jvm byte code
-      writeCode(transformed, symbolTable);
-      println("Byte Code Sucessfully Generated");
+      val path = new File(fileName).getParentFile().getAbsolutePath();
+      writeCode(transformed, symbolTable, path);
+
+      if (debug) {
+        println("Byte Code Sucessfully Generated");
+      }
 
     } catch {
       case e: ParseException => { System.err.println(e.getMessage); }

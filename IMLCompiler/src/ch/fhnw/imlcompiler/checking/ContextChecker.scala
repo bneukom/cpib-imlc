@@ -1,4 +1,4 @@
-package ch.fhnw.imlcompiler
+package ch.fhnw.imlcompiler.checking
 
 import scala.collection.mutable.HashMap
 import scala.collection.mutable.MutableList
@@ -177,7 +177,7 @@ trait ContextChecker {
         }
       }
       //      case ListExpr(o, _, _, _, _) => ListType(returnType(o, scope)) // infer type of list via output expression
-      case ListExpr(o, _, _, _, _) => ListType(IntType) // infer type of list via output expression
+      case ListComprehension(o, _, _, _, _) => ListType(IntType) // infer type of list via output expression
       case FunCallExpr(i, _) => {
         context.routines.find(x => x._1 == i) match {
           case None => throw UndefinedMethodException(i)
@@ -210,7 +210,7 @@ trait ContextChecker {
           case _ =>
         }
       }
-      case ListExpr(ret, i, from, to, where) => {
+      case ListComprehension(ret, i, from, to, where) => {
         // anonymous ident has to be unique
         if (scope.find(s => s.typedIdent.i == i).isDefined) throw DuplicateIdentException(i)
 

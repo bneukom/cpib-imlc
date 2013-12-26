@@ -5,16 +5,14 @@ do
 	if length l == 0 do
 		r init := 0
 	else
-		r := head l + sum(tail l)
+		r init := head l + sum(tail l)
 	endif
 endfun;
 
 var l:[int];
-var sum2:int;
 var sum:int
 do
-	l init := [1,2,3,4,5,6,7,8];
-	sum2 init := head head l;
-	sum init := sum(l)
+	l init := [1,2,3,4,5,6,7,8,9,10];
+	sum init := sum(l);
+	debugout sum
 endprogram
-

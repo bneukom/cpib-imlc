@@ -3,7 +3,7 @@ package ch.fhnw.imlcompiler.parsing
 import scala.util.parsing.combinator.RegexParsers
 import ch.fhnw.imlcompiler.AST._
 import ch.fhnw.imlcompiler.AST
-import ch.fhnw.imlcompiler.CompilerException
+import ch.fhnw.imlcompiler.checking.CompilerException
 
 trait IMLParsers extends RegexParsers {
 
@@ -50,9 +50,9 @@ trait IMLParsers extends RegexParsers {
   def monadicAddExpr: Parser[MonadicExpr] = positioned(addOpr ~ factor ^^ { case op ~ exp => MonadicExpr(exp, op) })
   def monadicNotExpr: Parser[MonadicExpr] = positioned("not" ~ factor ^^ { case "not" ~ exp => MonadicExpr(exp, Not) })
   def monadicListExpr: Parser[MonadicExpr] = positioned(listOpr ~ factor ^^ { case l ~ f => MonadicExpr(f, l) })
-  def listExpr: Parser[ListExpr] = positioned("{" ~ expr ~ "|" ~ ident ~ "from" ~ expr ~ "to" ~ expr ~ "when" ~ expr ~ "}" ^^ { case "{" ~ r ~ "|" ~ i ~ "from" ~ from ~ "to" ~ to ~ "when" ~ where ~ "}" => ListExpr(r, i, from, to, where) })
+  def listComprehension: Parser[ListComprehension] = positioned("{" ~ expr ~ "|" ~ ident ~ "from" ~ expr ~ "to" ~ expr ~ "when" ~ expr ~ "}" ^^ { case "{" ~ r ~ "|" ~ i ~ "from" ~ from ~ "to" ~ to ~ "when" ~ where ~ "}" => ListComprehension(r, i, from, to, where) })
 
-  def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | listExpr | "(" ~> expr <~ ")")
+  def factor: Parser[Expr] = positioned(literal ^^ { LiteralExpr(_) } | ident ~ tupleExpr ^^ { case i ~ r => FunCallExpr(i, r) } | ident ~ "init" ^^ { case i ~ "init" => StoreExpr(i, true) } | ident ^^ { case i => StoreExpr(i, false) } | monadicExpr | listComprehension | "(" ~> expr <~ ")")
 
   //  def expr: Parser[Expr] = positioned(term0 ~ rep(concatOpr ~> term0) ^^ { case x ~ l => l.foldRight(x)((x, y) => DyadicExpr(x, ConcatOpr, y)) })
   def expr: Parser[Expr] = positioned(rep1sep(term0, concatOpr) ^^ { case l => l.take(l.size - 1).foldRight(l.last)((x, y) => DyadicExpr(x, ConsOpr, y)) })

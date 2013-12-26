@@ -5,10 +5,10 @@ import ch.fhnw.imlcompiler.AST.Expr
 import ch.fhnw.imlcompiler.AST._
 import scala.collection.mutable.MutableList
 import scala.collection.mutable.ListBuffer
-import ch.fhnw.imlcompiler.ContextChecker
-import ch.fhnw.imlcompiler.SymbolTable
-import ch.fhnw.imlcompiler.Scope
-import ch.fhnw.imlcompiler.Store
+import ch.fhnw.imlcompiler.checking.ContextChecker
+import ch.fhnw.imlcompiler.checking.SymbolTable
+import ch.fhnw.imlcompiler.checking.Scope
+import ch.fhnw.imlcompiler.checking.Store
 
 // http://en.wikipedia.org/wiki/Set-builder_notation
 // TODO either always use List or always ListBuffer...
@@ -41,7 +41,9 @@ trait ASTTransformers {
       cmd match {
         case WhileCmd(e, c) => {
           val transformedExpr = transformExpr(e, scope)
-          (transformedExpr._3, transformedExpr._2 :+ WhileCmd(transformedExpr._1, c))
+          val transformedCommands = transformCommands(c, scope)
+          
+          (transformedExpr._3 ++ transformedCommands._1, transformedExpr._2 :+ WhileCmd(transformedExpr._1, transformedCommands._2))
         }
         case BecomesCmd(el, er) => {
           val transformedEr = transformExpr(er, scope)
@@ -75,7 +77,7 @@ trait ASTTransformers {
 
   def transformExpr(expr: Expr, scope: Scope)(implicit symbolTable: SymbolTable): (Expr, List[Cmd], List[Decl]) =
     expr match {
-      case l: ListExpr => {
+      case l: ListComprehension => {
         val listExpr = transformListExpr(l, scope);
         return (listExpr._4, listExpr._3, listExpr._1 :: listExpr._2 :: Nil);
       }
@@ -97,9 +99,7 @@ trait ASTTransformers {
     }
 
   // TODO does not work quite right probably if with two while loops (one for > and one for <) needed
-  // TODO update scope ?
   // TODO what about nested list comprehensions?
-  // TODO from 2 to 100 we need to start with 100 and go back for correct list order [2,3,4,5,...100]
   /**
    * Roughly translates a list expr into the following code (AST).
    *
@@ -110,7 +110,7 @@ trait ASTTransformers {
    *
    * primes init := $$l1;
    */
-  def transformListExpr(lexpr: ListExpr, scope: Scope)(implicit symbolTable: SymbolTable): (StoreDecl, StoreDecl, List[Cmd], StoreExpr) = {
+  def transformListExpr(lexpr: ListComprehension, scope: Scope)(implicit symbolTable: SymbolTable): (StoreDecl, StoreDecl, List[Cmd], StoreExpr) = {
     val countIdent = Ident("$" + lexpr.i.value + count)
     val listIdent = Ident("$$l" + count)
     count += 1 // TODO nope

@@ -65,7 +65,7 @@ object AST {
   case class FunCallExpr(i: Ident, e: TupleExpr) extends Expr;
   case class StoreExpr(i: Ident, isInitialization: Boolean) extends Expr;
   case class LiteralExpr(l: Literal) extends Expr;
-  case class ListExpr(output: Expr, i: Ident, from: Expr, to: Expr, predicate: Expr) extends Expr;
+  case class ListComprehension(output: Expr, i: Ident, from: Expr, to: Expr, predicate: Expr) extends Expr;
 
   abstract sealed class Factor extends ASTNode;
   abstract sealed class Literal extends Factor;

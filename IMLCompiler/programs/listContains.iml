@@ -16,7 +16,8 @@ var i:int;
 var c:bool
 do
 	l init := [1,2,3,4,5,6,7,8];
-	i init := 32;
-	c init := contains(l, i);
+	debugout l;
+	debugin i init;
+	c init := contains(l,i);
 	debugout c
 endprogram

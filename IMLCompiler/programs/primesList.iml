@@ -1,4 +1,4 @@
-program aacodegentest() 
+program primesList() 
 global 
 	fun isPrime(in copy const p:int) returns var b:bool
 	global
@@ -33,22 +33,11 @@ global
 		endif
 	endfun;
 
-	fun reverse(in copy const l:[int], in copy const acc:[int]) returns var r:[int]
-	do
-		if length l == 0 do
-			r init := acc
-		else
-			r init := reverse(tail l, head l :: acc)
-		endif
-	endfun;
-
 	var l:[int];
 	var max:int
 do 
 	debugin max init;
-	//l init := { x | x from max to 0 when isPrime(x)};
-	l init := { x | x from max to 0 when true};
+	l init := { x | x from 0 to max when isPrime(x)};
 	debugout l;
-	debugout reverse(l, []);
-	debugout sum(l)
+	debugout sum(l) 
 endprogram

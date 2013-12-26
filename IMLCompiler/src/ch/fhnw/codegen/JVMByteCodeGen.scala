@@ -5,20 +5,20 @@ import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.Opcodes._
 import org.objectweb.asm.MethodVisitor
 import java.io.FileOutputStream
-import ch.fhnw.imlcompiler.SymbolTable
+import ch.fhnw.imlcompiler.checking.SymbolTable
 import scala.collection.mutable.ListBuffer
-import ch.fhnw.imlcompiler.Store
-import ch.fhnw.imlcompiler.ContextChecker
+import ch.fhnw.imlcompiler.checking.Store
+import ch.fhnw.imlcompiler.checking.ContextChecker
 import org.objectweb.asm.Label
-import ch.fhnw.imlcompiler.Scope
-import ch.fhnw.imlcompiler.Store
+import ch.fhnw.imlcompiler.checking.Scope
+import ch.fhnw.imlcompiler.checking.Store
 
 // TODO create internal write int method which always chooses the best one ICONST_1 BIPISH etc
 trait JVMByteCodeGen extends ContextChecker {
 
   class CodeGenContext(val cw: ClassWriter, val prog: Program, val st: SymbolTable)
 
-  def writeCode(prog: Program, st: SymbolTable) = {
+  def writeCode(prog: Program, st: SymbolTable, path:String) = {
     val classWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
     val context = new CodeGenContext(classWriter, prog, st);
 
@@ -33,7 +33,7 @@ trait JVMByteCodeGen extends ContextChecker {
     writeCons()(context)
     writeTail()(context);
 
-    val fileWriter = new FileOutputStream(prog.name.value + ".class")
+    val fileWriter = new FileOutputStream(path + "\\" +  prog.name.value + ".class")
     fileWriter.write(classWriter.toByteArray())
     fileWriter.close
   }
