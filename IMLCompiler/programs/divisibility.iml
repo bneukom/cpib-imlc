@@ -9,7 +9,7 @@ do
 	l init := [];
 	counter init := max;
 	while counter > 0 do
-		l := { x | x from 1 to max when x mod counter == 0} :: l;
+		l := { x | x from max to 1 when x mod counter == 0} :: l;
 		counter := counter - 1
 	endwhile;
 	

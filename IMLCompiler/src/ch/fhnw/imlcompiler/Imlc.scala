@@ -1,6 +1,6 @@
 package ch.fhnw.imlcompiler
 
-object imlc {
+object Imlc {
   def main(args: Array[String]) {
     if (args.length == 1) {
       val path = args(0);

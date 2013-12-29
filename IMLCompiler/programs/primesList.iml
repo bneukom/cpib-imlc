@@ -9,7 +9,7 @@ global
 		
 		if p > 1 do
 			b init := true;
-			while c < p do
+			while c < p && b do
 				if p mod c == 0 do
 					b := false
 				else

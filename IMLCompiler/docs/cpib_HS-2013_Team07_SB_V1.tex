@@ -1,8 +1,8 @@
 \documentclass[a4paper,notitlepage,oneside]{article}
 
-\title{Zwischenbericht Compilerbau Gruppe 7 Listen}
-\author{Christof Weibel \and Benjamin Neukom}
-\date{15. November 2013 Version 1.0}
+\title{Schlussbericht Compilerbau \\ Gruppe 7 \\ IML mit Listen}
+\author{Christof Weibel \and Benjamin Neukom\\}
+\date{15. November 2013\\ Version 1.0\\}
 \usepackage{listings}
 \usepackage{amsmath}
 \usepackage{amssymb}
@@ -97,11 +97,11 @@
 \maketitle
 
 \begin{abstract}
-Dieses  Dokument beschreibt, wie die Sprache IML um Listen erweitert wird und welche Änderungen hierfür am Compiler und an der Virtual Machine gemacht werden müssen. Die Spracherweiterung wird mit den Sprachen Scala und Haskell verglichen und die Designentscheide werden erläutert.
+Dieses  Dokument beschreibt, wie die Sprache IML um Listen erweitert wird, welche Änderungen hierfür am Compiler nötig sind und wie das IML Programm nach Java Bytecode übersetzt wird. Die Spracherweiterung wird mit den Sprachen Scala und Haskell verglichen und die Designentscheide werden erläutert.  \\ \\
 \end{abstract}
 
-
 \section{Listen als Spracherweiterung}
+
 Listen für IML sind wie folgt definiert
 
 \begin{enumerate}
@@ -117,7 +117,7 @@ Listen für IML sind wie folgt definiert
   \item Listen sind immutable, d.h. die Werte einer Liste können nicht verändert werden. Es können nur mit den Operationen $::$ (Cons) und $tail$ neue Listen konstruiert werden.
 \end{enumerate} 
 
-
+\newpage
 \section{Operationen mit Listen}
 \subsection{Cons}
 \begin{align*}
@@ -143,33 +143,34 @@ length\;[Type] \rightarrow Int
 \end{flalign*}
 Der $length$ Operator gibt die Länge einer Liste zurück. Beispiel: $length\;[1,2,3,4,5]$ gibt den Wert 5 zurück.
 
-\newpage
 \section{List Comprehension}
+
+\raggedright
+Mit List Comprehensions können Listen erzeugt werden. Sie folgt der mathematischen Set-Builder Notation.
+
+
 \begin{flalign*}
 \{\;
-\underbrace{\vphantom{f}3*x\;}_{Out\;Fun} | 
-\underbrace{\vphantom{f}x\;}_{Variable} 
+\underbrace{\vphantom{f}3*x\;}_{Output\;Function} | 
+\underbrace{\vphantom{f}x\;}_{Counter} 
 \underbrace{from\;0\;to\;100}_{Range} \;when
 \underbrace{\vphantom{f}\;x\;mod\;2\;==\;0}_{Predicate} 
 \;\}
 \end{flalign*}
 
-\raggedright
-Mittels List Comprehension können auf einfache Weise Listen erzeugt werden. Sie folgt der mathematischen Set-Builder Notation.
-
 \begin{description}
 	\item[Output Function] \hfill \\
-	Funktion welche auf die vom Predicate akzeptieren Elemente angewandt wird, bevor sie in die Liste gespeichert werden.
-	\item[Variable] \hfill \\
-	Die Zähler Variable welche die angegebene Range durchläuft. Die Variable ist immer vom Typ int, deshalb muss dieser nicht explizit angegeben werden. Die Variable kann nur innerhalb dieser List Comprehension gebraucht werden.
+	Funktion welche auf die vom Predicate akzeptieren Elemente angewendet wird. Die Output Function muss einen Wert vom Typ $int$ zurückgeben.
+	\item[Counter] \hfill \\
+	Der Zähler, welche die angegebene Range durchläuft. Er ist  immer vom Typ $int$, deshalb muss dieser nicht explizit angegeben werden. Der zu dem Zähler gehörenden Store ist anonym, dass heisst, er kann nur innerhalb dieser List Comprehension verwendet werden.
 	\item[Range] \hfill \\
-	Die Inputmenge. Im Beispiel von 0 bis und mit 100. 
+	Die Inputmenge, angegeben durch zwei Expressions welche einen $int$ zurückgeben. Im Beispiel von 0 bis und {\bfseries mit} 100. 
 	\item[Predicate] \hfill \\
-	Filter, welcher auf jedes Element der Inputmenge angewendet wird,	um zu entscheiden ob es in der resultierenden Liste enthalten ist.
+	Filter, welcher auf jedes Element der Inputmenge angewendet wird, um zu entscheiden ob es in der resultierenden Liste enthalten ist. Die Filter Expression muss einen Wert vom Typ $bool$ zurückgeben.
 	
 \end{description}
 
-TODO: Wird in Loop übersetzt
+Die List Comprehensions werden nach dem der Typechecker das Programm überprüft hat in While-Loops übersetzt. Somit müssen sie bei der Code Generierung nicht speziell behandelt werden.
 
 \newpage
 \section{Vergleich mit Haskell und Scala}
@@ -202,26 +203,6 @@ In Scala verhält sich die Operator Präzedenz des :: Operator gleich wie bei Ha
 \section{Änderungen an der Grammatik}
 Folgende Änderungen wurden an der Grammatik vorgenommen. Die Änderungen wurden mit einem eigens entwickelten Tool (mehr dazu später) getestet und sind $LL(1)$ konform.
 \subsection{Expression}
-Vorher: 
-\begin{grammar}
-<expr> ::= <term1> \{BOOLOPR term1\}
-
-<term1> ::= <term2> [RELOPR term2]
-
-<term2> ::= <term3> \{ADDOPR term3\}
-
-<term3> ::= <factor> \{MULTOPR factor\}
-
-<factor> ::= <literal>
-		\alt IDENT [INIT | <exprList>]
-		\alt monadicOpr <factor>
-		\alt LPAREN <expr> RPAREN;
-		
-<exprList> ::= LPAREN [<expr> \{COMMA <expr>\}] RPAREN
-
-<monadicOpr> ::= NOT | ADDOPR
-\end{grammar}
-Nachher:
 \begin{grammar}
 <expr> ::= <term0> \{CONCATOPR term0\}
 
@@ -236,7 +217,8 @@ Nachher:
 <factor> ::= <literal>
 		\alt IDENT [INIT | <exprList>]
 		\alt monadicOpr <factor>
-		\alt LPAREN <expr> RPAREN;
+		\alt LPAREN <expr> RPAREN
+		\alt listComprehension;
 		
 <exprList> ::= LPAREN [<expr> \{COMMA <expr>\}] RPAREN
 
@@ -274,7 +256,7 @@ Nachher:
 
 <listLiteral> ::= LBRACKET [<expr> \{COMMA <expr>\}] RBRACKET
 \end{grammar}
-
+\newpage
 
 \section{Grammatik auf LL(1) Fehler überprüfen}
 Die Grammatik wurde, mit einem eigens entwickelten Tool, auf LL(1) Fehler überprüft. Das Tool akzeptiert eine EBNF Grammatik (wie im Unterricht besprochen) und wandelt diese in eine normale Grammatik um. Danach werden die $NULLABLE$, $FIRST$ und $FOLLOW$ Sets berechnet und damit die Parse Tabelle generiert.
@@ -298,7 +280,26 @@ Grammatik der EBNF Grammatik:
 \end{grammar}
 
 \section{Code Generierung}
-Da wir für die Listen einen Heap benötigen wurde als Zielplattform die Java Virtual Machine gewählt.
+Da wir für Listen einen Heap benötigen haben wir uns entschieden für die Java Virtual Machine (JVM) zu kompilieren. Aus dem IML Programm wird Java Bytecode generiert.
+
+\subsection{Aufbau}
+\begin{description}
+	\item[IML Programm] \hfill \\
+	Wird in eine Java Klasse mit dem gleichen Namen 		übersetzt
+	\item[Globale Felder] \hfill \\
+	Werden in private statische Variabeln übersetzt
+	\item[Methoden und Prozeduren] \hfill \\
+	werden in statische Java Methoden übersetzt
+	\item[IML Hauptprogramm] \hfill \\
+	wird in die Java Main-Methode übersetzt
+\end{description}
+
+\subsection{Listen}
+IML Listen werden in Java Arrays umgewandelt. Für die Operatoren $tail$ und $cons$ werden Java Methoden generiert um eine deep Copy durchzuführen, welche bei jedem Aufruf dieser Operatoren ausgeführt werden. Für den $head$ Operator wird keine deep Copy benötigt, da Listen immutable sind.
+
+\subsection{Out Parameter}
+Da die JVM keine Out oder Ref Parameter unterstützt müssen diese speziell behandelt werden. Out-Parameter wurden folgendermassen umgesetzt: Der übergebene Store wird in ein Array der Länge Eins gespeichert. In der Prozedur werden alle Lese und Schreibe Operationen über dieses Array ausgeführt. Nach dem Aufruf der Prozedur wird der Parameter wieder aus dem Array gelesen und in den eigentlichen Store geschrieben. Ref Parameter wurden bei unserer Implementation nicht speziell behandelt. Sie funktionieren gleich wie Copy Out Parameter.
+
 
 \newpage
 \section{Code Beispiele}
@@ -324,7 +325,7 @@ do
 endprogram
 \end{lstlisting}
 
-Contains:
+List Contains:
 \begin{lstlisting}[language=iml, caption=Listen Contains]
 program listContains()
 global
@@ -351,7 +352,6 @@ do
 endprogram
 
 \end{lstlisting}
-
 
 \newpage
 Liste umkehren:
@@ -400,28 +400,7 @@ endprogram
 \end{lstlisting}
 
 \newpage
-\begin{lstlisting}[language=iml, caption=Liste reverse 2]
-program listReverse()
-global
-
-// reverse 2
-fun reverse(in copy l:[int], in copy acc:[int]) returns var r:[int]
-do
-	if length l == 0 do
-		r init := acc
-	else
-		r init := reverse(tail l, head l :: acc)
-	endif
-endfun;
-
-var l:[int];
-var r:[int]
-do
-	l init := [1,2,3,4,5,6,7,8];
-	r init := reverse(l, [])
-endprogram
-\end{lstlisting}
-
+Liste von Primzahlen mit List Comprehensions
 \begin{lstlisting}[language=iml, caption=Primzahlen Liste]
 program primesList() 
 global 
@@ -468,6 +447,29 @@ do
 endprogram
 \end{lstlisting}
 
+\newpage
+\begin{lstlisting}[language=iml, caption=Liste reverse 2]
+program listReverse2()
+global
+
+// reverse 2
+fun reverse(in copy l:[int], in copy acc:[int]) returns var r:[int]
+do
+	if length l == 0 do
+		r init := acc
+	else
+		r init := reverse(tail l, head l :: acc)
+	endif
+endfun;
+
+var l:[int];
+var r:[int]
+do
+	l init := [1,2,3,4,5,6,7,8];
+	r init := reverse(l, [])
+endprogram
+\end{lstlisting}
+
 \begin{lstlisting}[language=iml, caption=Teilbarkeit]
 program divisibility() 
 global 
@@ -488,7 +490,6 @@ do
 endprogram
 \end{lstlisting}
 
-\newpage
 \section{Quellen}
 Internet:\\
 \begin{tabular}{l l}
