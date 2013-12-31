@@ -1,0 +1,9 @@
+program boollisttest() 
+global 
+ var l:[bool]
+do 
+ l init:= [true, false, true];
+ l := length { x | x from -50 to 100 when 1 > 0 } > 1000 :: l;
+
+ debugout l
+endprogram

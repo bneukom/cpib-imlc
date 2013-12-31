@@ -18,7 +18,7 @@ trait JVMByteCodeGen extends ContextChecker {
 
   class CodeGenContext(val cw: ClassWriter, val prog: Program, val st: SymbolTable)
 
-  def writeCode(prog: Program, st: SymbolTable, path:String) = {
+  def writeCode(prog: Program, st: SymbolTable, path: String) = {
     val classWriter = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
     val context = new CodeGenContext(classWriter, prog, st);
 
@@ -33,7 +33,7 @@ trait JVMByteCodeGen extends ContextChecker {
     writeCons()(context)
     writeTail()(context);
 
-    val fileWriter = new FileOutputStream(path + "\\" +  prog.name.value + ".class")
+    val fileWriter = new FileOutputStream(path + "\\" + prog.name.value + ".class")
     fileWriter.write(classWriter.toByteArray())
     fileWriter.close
   }
@@ -406,7 +406,8 @@ trait JVMByteCodeGen extends ContextChecker {
 
         toJVMType(returnType(e, scope)(context.st)) match {
           case "I" => mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;");
-          case _ => // TODO implement more
+          case "Z" => mv.visitMethodInsn(INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;");
+          case _ =>
         }
         mv.visitInsn(AASTORE);
     }
@@ -718,7 +719,8 @@ trait JVMByteCodeGen extends ContextChecker {
     val lType = returnType(dyadicExpr.l, scope)(context.st);
     lType match {
       case IntType => mv.visitMethodInsn(INVOKESTATIC, "java/lang/Integer", "valueOf", "(I)Ljava/lang/Integer;");
-      case _ => // TODO impl
+      case BoolType => mv.visitMethodInsn(INVOKESTATIC, "java/lang/Boolean", "valueOf", "(Z)Ljava/lang/Boolean;");
+      case _ =>
     }
 
     mv.visitInsn(AASTORE);
@@ -858,7 +860,7 @@ trait JVMByteCodeGen extends ContextChecker {
     "(" + f.params.map(s => {
       s.f.get match { // TODO is get right? what are default values?
         case In => toJVMType(s.ti.t)
-        case _ => s.ti.t match {
+        case _ => s.ti.t match { // in or inout
           case IntType | BoolType => "[" + toJVMType(s.ti.t);
           case _ => "[Ljava/lang/Object;"
         }

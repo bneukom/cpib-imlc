@@ -42,7 +42,7 @@ trait ASTTransformers {
         case WhileCmd(e, c) => {
           val transformedExpr = transformExpr(e, scope)
           val transformedCommands = transformCommands(c, scope)
-          
+
           (transformedExpr._3 ++ transformedCommands._1, transformedExpr._2 :+ WhileCmd(transformedExpr._1, transformedCommands._2))
         }
         case BecomesCmd(el, er) => {
@@ -79,7 +79,7 @@ trait ASTTransformers {
     expr match {
       case l: ListComprehension => {
         val listExpr = transformListExpr(l, scope);
-        return (listExpr._4, listExpr._3, listExpr._1 :: listExpr._2 :: Nil);
+        return (listExpr._3, listExpr._2, listExpr._1);
       }
       case DyadicExpr(lhs, op, rhs) => {
         val transformedLhs = transformExpr(lhs, scope)
@@ -98,8 +98,7 @@ trait ASTTransformers {
       }
     }
 
-  // TODO does not work quite right probably if with two while loops (one for > and one for <) needed
-  // TODO what about nested list comprehensions?
+  // TODO nested comprehensions do not work right
   /**
    * Roughly translates a list expr into the following code (AST).
    *
@@ -110,10 +109,9 @@ trait ASTTransformers {
    *
    * primes init := $$l1;
    */
-  def transformListExpr(lexpr: ListComprehension, scope: Scope)(implicit symbolTable: SymbolTable): (StoreDecl, StoreDecl, List[Cmd], StoreExpr) = {
-    val countIdent = Ident("$" + lexpr.i.value + count)
-    val listIdent = Ident("$$l" + count)
-    count += 1 // TODO nope
+  def transformListExpr(lexpr: ListComprehension, scope: Scope)(implicit symbolTable: SymbolTable): (List[Decl], List[Cmd], StoreExpr) = {
+    val countIdent = Ident("$" + lexpr.i.value)
+    val listIdent = Ident("$$l")
 
     val countTypedIdent = TypedIdent(countIdent, IntType);
     val listIdentTypedIdent = TypedIdent(listIdent, ListType(IntType)) // TODO maybe infer type?
@@ -126,21 +124,25 @@ trait ASTTransformers {
     val countInitCmd = BecomesCmd(StoreExpr(countIdent, true), lexpr.to)
     val listInitCmd = BecomesCmd(StoreExpr(listIdent, true), LiteralExpr(ListLiteral(List())))
 
-    val appenderCmd = BecomesCmd(StoreExpr(listIdent, false), DyadicExpr(replace(lexpr.output, lexpr.i, countIdent), ConsOpr, StoreExpr(listIdent, false)))
+    val appenderCmd = BecomesCmd(StoreExpr(listIdent, false), DyadicExpr(replace(transformExpr(lexpr.output, scope)._1, lexpr.i, countIdent), ConsOpr, StoreExpr(listIdent, false)))
 
-    val whereCmd = IfCmd(replace(lexpr.predicate, lexpr.i, countIdent), appenderCmd :: Nil, SkipCmd() :: Nil)
+    val transformedPredicate = transformExpr(lexpr.predicate, scope);
+    val whereCmd = IfCmd(replace(transformedPredicate._1, lexpr.i, countIdent), appenderCmd :: Nil, SkipCmd() :: Nil)
 
     val incrementer = BecomesCmd(StoreExpr(countIdent, false), DyadicExpr(StoreExpr(countIdent, false), PlusOpr, LiteralExpr(IntLiteral(1))))
     val decrementer = BecomesCmd(StoreExpr(countIdent, false), DyadicExpr(StoreExpr(countIdent, false), MinusOpr, LiteralExpr(IntLiteral(1))))
 
-    val lowToHighWhile = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), GE, lexpr.from), whereCmd :: decrementer :: Nil)
-    val highToLowWhile = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), LT, lexpr.from), whereCmd :: incrementer :: Nil)
+    val transformedFrom = transformExpr(lexpr.from, scope);
+    val transformedTo = transformExpr(lexpr.to, scope);
 
-    val topDownSelector = IfCmd(DyadicExpr(lexpr.to, GT, lexpr.from), lowToHighWhile :: Nil, highToLowWhile :: Nil)
+    val lowToHighWhile = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), GE, transformedFrom._1), whereCmd :: decrementer :: Nil)
+    val highToLowWhile = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), LT, transformedTo._1), whereCmd :: incrementer :: Nil)
+
+    val topDownSelector = IfCmd(DyadicExpr(transformedTo._1, GT, transformedFrom._1), lowToHighWhile :: Nil, highToLowWhile :: Nil)
 
     val resultExpr = StoreExpr(listIdent, false)
 
-    return (counterStoreDecl, listStoreDecl, countInitCmd :: listInitCmd :: topDownSelector :: Nil, resultExpr)
+    return (transformedPredicate._3 ++ (counterStoreDecl :: listStoreDecl :: Nil), transformedPredicate._2 ++ (countInitCmd :: listInitCmd :: topDownSelector :: Nil), resultExpr)
   }
 
   def replace(e: Expr, from: Ident, to: Ident): Expr = {
@@ -149,9 +151,9 @@ trait ASTTransformers {
       case s: StoreExpr => StoreExpr(if (s.i == from) to else s.i, s.isInitialization);
       case l: LiteralExpr => l;
       case f: FunCallExpr => FunCallExpr(f.i, TupleExpr(f.e.l.map(replace(_, from, to))))
+      case m: MonadicExpr => MonadicExpr(replace(m.l, from, to), m.op)
+      case l: ListComprehension => ListComprehension(replace(l.output, from, to), l.i, replace(l.from, from, to), replace(l.to, from, to), replace(l.predicate, from, to))
     }
   }
-
-  var count = 0;
 
 }

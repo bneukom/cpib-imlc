@@ -220,8 +220,8 @@ trait ContextChecker {
         val tempInitialized = initializedStores + anonymousStore;
 
         // check from and where expressions (they should not be able to access the anonymous store)
-        val fromType = returnType(from, tempScope); if (!fromType.matches(IntType)) throw TypeMismatchError(from, IntType, fromType);
-        val toType = returnType(to, tempScope); if (!toType.matches(IntType)) throw TypeMismatchError(to, IntType, toType);
+        val fromType = returnType(from, scope); if (!fromType.matches(IntType)) throw TypeMismatchError(from, IntType, fromType);
+        val toType = returnType(to, scope); if (!toType.matches(IntType)) throw TypeMismatchError(to, IntType, toType);
 
         // check the return type
         checkExpr(ret, tempScope, false, loopedExpr, elseBranch, tempInitialized)
