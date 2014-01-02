@@ -225,6 +225,8 @@ trait JVMByteCodeGen extends ContextChecker {
         writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); mv.visitInsn(IREM)
       case EQ =>
         writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); writeCheckEquals(mv);
+      case NE =>
+        writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); writeCheckNotEquals(mv);
       case LT =>
         writeExpr(dyadicExpr.l, mv, scope, insideRoutine); writeExpr(dyadicExpr.r, mv, scope, insideRoutine); writeCheckLessThan(mv);
       case LE =>
@@ -245,7 +247,20 @@ trait JVMByteCodeGen extends ContextChecker {
       case LengthOpr => writeExpr(monadicExpr.l, mv, scope, insideRoutine); mv.visitInsn(ARRAYLENGTH);
       case HeadOpr => writeHeadOpr(monadicExpr, mv, scope, insideRoutine)
       case TailOpr => writeTailOpr(monadicExpr, mv, scope, insideRoutine)
-      case MinusOpr => writeExpr(monadicExpr.l, mv, scope, insideRoutine); mv.visitInsn(INEG)
+      case MinusOpr =>
+        writeExpr(monadicExpr.l, mv, scope, insideRoutine); mv.visitInsn(INEG)
+      case PlusOpr => writeExpr(monadicExpr.l, mv, scope, insideRoutine)
+      case Not => {
+        val returnFalse = new Label()
+        val end = new Label
+        writeExpr(monadicExpr.l, mv, scope, insideRoutine);
+        mv.visitJumpInsn(IFNE, returnFalse)
+        mv.visitInsn(ICONST_1)
+        mv.visitJumpInsn(GOTO, end)
+        mv.visitLabel(returnFalse)
+        mv.visitInsn(ICONST_0)
+        mv.visitLabel(end)
+      }
     }
   }
 

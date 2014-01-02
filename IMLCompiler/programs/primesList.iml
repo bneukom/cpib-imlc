@@ -23,8 +23,6 @@ global
 	endfun;
 
 	fun sum(in copy const l:[int]) returns var r:int
-	local 
-	var x:int
 	do
 		if length l == 0 do
 			r init := 0
@@ -37,7 +35,7 @@ global
 	var max:int
 do 
 	debugin max init;
-	l init := { x | x from 0 to max when isPrime(x)};
+	l init := { x * x | x from 0 to max when isPrime(x)};
 	debugout l;
 	debugout sum(l) 
 endprogram

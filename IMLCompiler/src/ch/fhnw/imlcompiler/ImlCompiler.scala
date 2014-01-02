@@ -15,7 +15,7 @@ import ch.fhnw.imlcompiler.checking.CompilerException
 object ImlCompiler extends IMLParsers with ContextChecker with ASTTransformers with JVMByteCodeGen {
 
   def main(args: Array[String]) {
-    compile("programs/boollisttest.iml", true)
+    compile("programs/divisibility.iml", true)
   }
 
   def compile(fileName: String, debug: Boolean) = {

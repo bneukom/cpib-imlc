@@ -94,7 +94,7 @@ trait IMLParsers extends RegexParsers {
     }
   }
 
-  def parser[T](i: String, p: Parser[T]): T = {
+  def parse[T](i: String, p: Parser[T]): T = {
     parseAll(p, i) match {
       case Success(result, _) => return result
       case failure: NoSuccess => throw ParseException("Error at " + failure.next.pos.line + ":" + failure.next.pos.column + "\n" + failure.next.pos.longString + "\nMessage: " + failure.msg) // "at " + n.pos.line + ":" + n.pos.column + "\n" + n.pos.longString + 
