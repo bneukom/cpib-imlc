@@ -170,8 +170,55 @@ Mit List Comprehensions können Listen erzeugt werden. Sie folgt der mathematisc
 	
 \end{description}
 
-Die List Comprehensions werden nach dem der Typechecker das Programm überprüft hat in While-Loops übersetzt. Somit müssen sie bei der Code Generierung nicht speziell behandelt werden.
+\newpage
+Nachdem der Typechecker das Programm überprüft hat, wird der AST der List Comprehensions in folgende Commands umgewandelt
+\\
+List Comrprehension:
+\begin{align*}
+x := \{\;3\;*\;x\;|\;x\;from\;0\;to\;100\;when\;x\;mod\;2\;==\;0\;\}
+\end{align*}
 
+Äquivalenter IML Code zu dem transformierten AST:
+\begin{lstlisting}[language=iml, caption=Transformation]
+var $i:int;
+var $l:[int]
+
+...
+
+// To-Value
+i init := 100;
+
+if 100 > 0 do
+	while $i >= 0 do 
+		// predicate
+		if $i mod 2 == 0 do 
+			// output function
+			$l := ($i * 3) :: $l
+		else
+			skip
+		endif;
+		$i := $i - 1
+	endwhile
+	
+else
+	while $i < 100 do
+		// predicate
+		if $i mod 2 == 0 do 
+			// output function
+			$l := ($i * 3) :: $l 
+		else
+			skip
+		endif;
+		$i := $i + 1
+	endwhile
+	
+endif
+
+x := $l
+
+\end{lstlisting}
+
+Da für die Range zwei Expressions erwartet werden, kann nicht zur Kompilierzeit entschieden werden, ob der From Wert grösser ist als der To Wert, somit müssen beide Fälle behandelt werden. Bei der Code Generierung müssen List Comprehensions nicht mehr speziell behandelt werden.
 \newpage
 \section{Vergleich mit Haskell und Scala}
 \subsection{Haskell}
@@ -181,16 +228,22 @@ Die Operatoren $head$, $tail$ und $length$ verhalten sich identisch zu den Haske
 Beispiel für Haskell: 
 
 \begin{lstlisting}[language=haskell, caption=Ungültige Cons Operation in Haskell]
-1 > 3 : True : [] // Type Error
-(1 > (3 : (True : []))) // Mit Klammerung um Operator Praezedenz zu zeigen
+// Type Error
+1 > 3 : True : [] 
+
+// Mit Klammerung um Operator Praezedenz zu zeigen
+(1 > (3 : (True : []))) 
 \end{lstlisting}
 
 \raggedright
 Gleiches Beispiel in IML:
 
 \begin{lstlisting}[language=iml, caption=Gültige Listen Konkatenation in IML]
-1 > 3 :: true : [] // Keinen Type Error
-((1 > 3) :: (true :: [])) // Mit Klammerung um Operator Praezedenz zu zeigen
+// Keinen Type Error
+1 > 3 :: true : [] 
+
+// Mit Klammerung um Operator Praezedenz zu zeigen
+((1 > 3) :: (true :: [])) 
 \end{lstlisting}
 Wir haben uns für diese Präzedenz entschieden, da es unserer Meinung nach natürlicher ist, dass der :: Operator die tiefste Priorität hat.
 Ausserdem haben wir noch kein Beispiel gefunden, wo die Operator Präzedenz wie sie in Haskell implementiert ist, einen Vorteil gegenüber unserer Implementation bietet.
@@ -289,13 +342,14 @@ Da wir für Listen einen Heap benötigen haben wir uns entschieden für die Java
 	\item[Globale Felder] \hfill \\
 	Werden in private statische Variabeln übersetzt
 	\item[Methoden und Prozeduren] \hfill \\
-	werden in statische Java Methoden übersetzt
+	Werden in statische Java Methoden übersetzt
 	\item[IML Hauptprogramm] \hfill \\
-	wird in die Java Main-Methode übersetzt
+	Wird in die Java Main-Methode übersetzt
 \end{description}
 
 \subsection{Listen}
-IML Listen werden in Java Arrays umgewandelt. Für die Operatoren $tail$ und $cons$ werden Java Methoden generiert um eine deep Copy durchzuführen, welche bei jedem Aufruf dieser Operatoren ausgeführt werden. Für den $head$ Operator wird keine deep Copy benötigt, da Listen immutable sind.
+Da die Element Anzahl von IML Listen unveränderbar ist, werden sie in Java Arrays umgewandelt.
+Dies hat zur Folge, dass bei einer $tail$ oder $cons$ Operation das Array kopiert werden muss.
 
 \subsection{Out Parameter}
 Da die JVM keine Out oder Ref Parameter unterstützt müssen diese speziell behandelt werden. Out-Parameter wurden folgendermassen umgesetzt: Der übergebene Store wird in ein Array der Länge Eins gespeichert. In der Prozedur werden alle Lese und Schreibe Operationen über dieses Array ausgeführt. Nach dem Aufruf der Prozedur wird der Parameter wieder aus dem Array gelesen und in den eigentlichen Store geschrieben. Ref Parameter wurden bei unserer Implementation nicht speziell behandelt. Sie funktionieren gleich wie Copy Out Parameter.

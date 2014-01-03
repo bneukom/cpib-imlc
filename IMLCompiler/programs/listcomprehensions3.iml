@@ -1,0 +1,7 @@
+program listcomprehensions3()
+global
+var l:[int]
+do
+	l init := { x * 3 | x from  to 100 when x mod 2 == 0 };
+	debugout l
+endprogram

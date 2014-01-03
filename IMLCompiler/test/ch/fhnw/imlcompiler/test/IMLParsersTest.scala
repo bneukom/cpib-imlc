@@ -45,6 +45,7 @@ class IMLParsersTest extends FunSuite with BeforeAndAfter with IMLParsers with M
   test("identifier") {
     parse("x", ident) shouldEqual Ident("x")
     parse("x1", ident) shouldEqual Ident("x1")
+    
     a[CompilerException] should be thrownBy parse("_x", ident)
     a[CompilerException] should be thrownBy parse("while", ident)
   }

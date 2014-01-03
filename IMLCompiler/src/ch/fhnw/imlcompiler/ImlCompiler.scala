@@ -15,7 +15,7 @@ import ch.fhnw.imlcompiler.checking.CompilerException
 object ImlCompiler extends IMLParsers with ContextChecker with ASTTransformers with JVMByteCodeGen {
 
   def main(args: Array[String]) {
-    compile("programs/divisibility.iml", true)
+    compile("programs/listcomprehensions3.iml", true)
   }
 
   def compile(fileName: String, debug: Boolean) = {
@@ -40,7 +40,7 @@ object ImlCompiler extends IMLParsers with ContextChecker with ASTTransformers w
         println("Context Checking Successful")
         println()
       }
-      
+
       // code transformations (for example list expressions)
       val transformed = transform(program, symbolTable);
 
@@ -49,9 +49,12 @@ object ImlCompiler extends IMLParsers with ContextChecker with ASTTransformers w
         println((transformed))
         println()
       }
-      
+
       // generate jvm byte code
       val path = new File(fileName).getParentFile().getAbsolutePath();
+      if (debug)
+        println("Write class to path: " + path)
+
       writeCode(transformed, symbolTable, path);
 
       if (debug) {
