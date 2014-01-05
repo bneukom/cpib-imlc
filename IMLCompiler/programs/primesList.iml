@@ -9,6 +9,7 @@ global
 		
 		if p > 1 do
 			b init := true;
+			
 			while c < p && b do
 				if p mod c == 0 do
 					b := false
@@ -35,7 +36,7 @@ global
 	var max:int
 do 
 	debugin max init;
-	l init := { x | x from 0 to 100 when true};
+	l init := { x | x from 0 to max when isPrime(x)};
 	debugout l;
 	debugout sum(l) 
 endprogram

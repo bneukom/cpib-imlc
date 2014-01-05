@@ -311,10 +311,7 @@ Nachher:
 \newpage
 
 \section{Grammatik auf LL(1) Fehler überprüfen}
-Die Grammatik wurde, mit einem eigens entwickelten Tool, auf LL(1) Fehler überprüft. Das Tool akzeptiert eine EBNF Grammatik (wie im Unterricht besprochen) und wandelt diese in eine normale Grammatik um. Danach werden die $NULLABLE$, $FIRST$ und $FOLLOW$ Sets berechnet und damit die Parse Tabelle generiert.
-\newline
-\newline
-Grammatik der EBNF Grammatik:
+Die Grammatik wurde, mit einem eigens entwickelten Tool, auf LL(1) Fehler überprüft. Das Tool akzeptiert eine EBNF Grammatik (wie im Unterricht besprochen) und wandelt diese in eine normale Grammatik um. Danach werden die $NULLABLE$, $FIRST$ und $FOLLOW$ Sets berechnet und damit die Parse Tabelle generiert. Grammatik der EBNF Grammatik:
 \begin{grammar}
 <grammar> ::= <production> \{SEMICOLON <production>\};
 
@@ -356,7 +353,7 @@ Für Out-Parameter wird der übergebene Store wird in ein Array der Länge Eins 
 Ref Parameter wurden bei unserer Implementation nicht speziell behandelt. Sie funktionieren gleich wie Copy Out Parameter.
 
 \section{Resultate}
-Die im Zwischenbericht spezifizierten Listen wurden so umgesetzt und der Context-Checker wurde so erweitert, dass Type-Fehler von Listen erkennt werden.\\ Nicht implementiert wurden Programm-Paramter, Global-Imports und Ref Parameter. Auch ist der Memory Footprint von den Listen bei unserer Implementation sehr hoch, da wir Listen für die Operationen $tail$ und $head$ immer kopieren.
+Die im Zwischenbericht spezifizierten Listen wurden so umgesetzt und der Context-Checker wurde so erweitert, dass Type-Fehler von Listen erkennt werden. Auch wurden zusätzlich noch einfache List-Comprehensions implementiert.\\ Nicht implementiert wurden Programm-Paramter, Global-Imports und Ref-Parameter. Auch ist der Memory Footprint von Listen bei unserer Implementation sehr hoch, da wir die Listen für die Operationen $tail$ und $cons$ immer kopieren.
 
 \newpage
 \section{Code Beispiele}
