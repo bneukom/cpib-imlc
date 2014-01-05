@@ -136,7 +136,7 @@ trait ASTTransformers {
     val transformedTo = transformExpr(lexpr.to, scope);
 
     val lowToHighWhile = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), GE, transformedFrom._1), whereCmd :: decrementer :: Nil)
-    val highToLowWhile = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), LT, transformedTo._1), whereCmd :: incrementer :: Nil)
+    val highToLowWhile = WhileCmd(DyadicExpr(StoreExpr(countIdent, false), LE, transformedFrom._1), whereCmd :: incrementer :: Nil)
 
     val topDownSelector = IfCmd(DyadicExpr(transformedTo._1, GT, transformedFrom._1), lowToHighWhile :: Nil, highToLowWhile :: Nil)
 

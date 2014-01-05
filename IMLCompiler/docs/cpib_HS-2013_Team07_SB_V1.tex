@@ -164,21 +164,20 @@ Mit List Comprehensions können Listen erzeugt werden. Sie folgt der mathematisc
 	\item[Counter] \hfill \\
 	Der Zähler, welche die angegebene Range durchläuft. Er ist  immer vom Typ $int$, deshalb muss dieser nicht explizit angegeben werden. Der zu dem Zähler gehörenden Store ist anonym, dass heisst, er kann nur innerhalb dieser List Comprehension verwendet werden.
 	\item[Range] \hfill \\
-	Die Inputmenge, angegeben durch zwei Expressions welche einen $int$ zurückgeben. Im Beispiel von 0 bis und {\bfseries mit} 100. 
+	Die Inputmenge, angegeben durch zwei Expressions welche einen $int$ zurückgeben. Im Beispiel von 0 bis und mit 100. Der Schritt ist immer 1. Es ist auch möglich die Range in umgekehrter Reihenfolge durchzulaufen. Also mit einem From Wert von 100 und To Wert von 0.
 	\item[Predicate] \hfill \\
-	Filter, welcher auf jedes Element der Inputmenge angewendet wird, um zu entscheiden ob es in der resultierenden Liste enthalten ist. Die Filter Expression muss einen Wert vom Typ $bool$ zurückgeben.
+	Filter, welcher auf jedes Element der Range angewendet wird, um zu entscheiden ob es in der resultierenden Liste enthalten ist. Das Predicate muss einen Wert vom Typ $bool$ zurückgeben.
 	
 \end{description}
 
 \newpage
-Nachdem der Typechecker das Programm überprüft hat, wird der AST der List Comprehensions in folgende Commands umgewandelt
-\\
-List Comrprehension:
+Nachdem der Context-Checker das Programm überprüft hat, wird der AST der List Comprehensions in Commands umgewandelt. Beispiel:
+
 \begin{align*}
 x := \{\;3\;*\;x\;|\;x\;from\;0\;to\;100\;when\;x\;mod\;2\;==\;0\;\}
 \end{align*}
 
-Äquivalenter IML Code zu dem transformierten AST:
+IML Code zu dem transformierten AST:
 \begin{lstlisting}[language=iml, caption=Transformation]
 var $i:int;
 var $l:[int]
@@ -193,7 +192,7 @@ if 100 > 0 do
 		// predicate
 		if $i mod 2 == 0 do 
 			// output function
-			$l := ($i * 3) :: $l
+			$l := (3 *$i) :: $l
 		else
 			skip
 		endif;
@@ -201,11 +200,11 @@ if 100 > 0 do
 	endwhile
 	
 else
-	while $i < 100 do
+	while $i <= 0 do
 		// predicate
 		if $i mod 2 == 0 do 
 			// output function
-			$l := ($i * 3) :: $l 
+			$l := (3 *$i) :: $l 
 		else
 			skip
 		endif;
@@ -333,7 +332,7 @@ Grammatik der EBNF Grammatik:
 \end{grammar}
 
 \section{Code Generierung}
-Da wir für Listen einen Heap benötigen haben wir uns entschieden für die Java Virtual Machine (JVM) zu kompilieren. Aus dem IML Programm wird Java Bytecode generiert.
+Da für Listen ein Heap benötigt wird, haben wir uns entschieden für die Java Virtual Machine (JVM) zu kompilieren. Aus dem IML Programm wird Java Bytecode generiert.
 
 \subsection{Aufbau}
 \begin{description}
@@ -352,8 +351,12 @@ Da die Element Anzahl von IML Listen unveränderbar ist, werden sie in Java Arra
 Dies hat zur Folge, dass bei einer $tail$ oder $cons$ Operation das Array kopiert werden muss.
 
 \subsection{Out Parameter}
-Da die JVM keine Out oder Ref Parameter unterstützt müssen diese speziell behandelt werden. Out-Parameter wurden folgendermassen umgesetzt: Der übergebene Store wird in ein Array der Länge Eins gespeichert. In der Prozedur werden alle Lese und Schreibe Operationen über dieses Array ausgeführt. Nach dem Aufruf der Prozedur wird der Parameter wieder aus dem Array gelesen und in den eigentlichen Store geschrieben. Ref Parameter wurden bei unserer Implementation nicht speziell behandelt. Sie funktionieren gleich wie Copy Out Parameter.
+Da die JVM keine Out oder Ref Parameter unterstützt müssen diese speziell behandelt werden. \\
+Für Out-Parameter wird der übergebene Store wird in ein Array der Länge Eins gespeichert. In der Prozedur werden alle Lese und Schreibe Operationen über dieses Array ausgeführt. Nach dem Aufruf der Prozedur wird der Parameter wieder aus dem Array gelesen und in den übergebenen Store geschrieben. \\
+Ref Parameter wurden bei unserer Implementation nicht speziell behandelt. Sie funktionieren gleich wie Copy Out Parameter.
 
+\section{Resultate}
+Die im Zwischenbericht spezifizierten Listen wurden so umgesetzt und der Context-Checker wurde so erweitert, dass Type-Fehler von Listen erkennt werden.\\ Nicht implementiert wurden Programm-Paramter, Global-Imports und Ref Parameter. Auch ist der Memory Footprint von den Listen bei unserer Implementation sehr hoch, da wir Listen für die Operationen $tail$ und $head$ immer kopieren.
 
 \newpage
 \section{Code Beispiele}

@@ -24,7 +24,8 @@ trait ContextChecker {
   case class InvalidParamater(n: Expr, required: Type, actual: Type) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid parameter type '" + actual + "' required: " + required + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class DuplicateInitialize(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") store: '" + n.value + "' has already been initialized\n\n" + n.pos.longString + "\nAST: " + n);
   case class StoreNotInitialized(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") store: '" + n.value + "' has not been initialized\n\n" + n.pos.longString + "\nAST: " + n);
-  case class InvalidstoreAssignment(n: Expr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid storeAssignment\n\n" + n.pos.longString + "\nAST: " + n);
+  case class InvalidLValue(n: Expr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid lvalue\n\n" + n.pos.longString + "\nAST: " + n);
+  case class InvalidRValue(n: Expr) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid rvalue\n\n" + n.pos.longString + "\nAST: " + n);
   case class ConstModification(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") identifier '" + n.value + "' is const and can not be modified\n\n" + n.pos.longString + "\nAST: " + n);
   case class InStoreInitialization(n: Ident, f: FlowMode) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing " + f.toString().toLowerCase() + " mode store: " + n.value + "\n\n" + n.pos.longString + "\nAST: " + n);
   case class LoopedInit(n: Ident) extends CompilerException("(" + n.pos.line + ":" + n.pos.column + ") invalid attempt of initializing store: " + n.value + " inside a loop body\n\n" + n.pos.longString + "\nAST: " + n);
@@ -251,7 +252,8 @@ trait ContextChecker {
               s.flow.foreach(f => if (f == In || f == InOut) throw InStoreInitialization(storeExpr.i, f))
 
               if (initializedStores.find(s => s.typedIdent.i == storeExpr.i).isDefined) throw DuplicateInitialize(storeExpr.i);
-              if (!storeAssignment) throw InvalidstoreAssignment(storeExpr)
+              
+              if (!storeAssignment) throw InvalidRValue(storeExpr)
 
               initializedStores += s;
             } else {
@@ -285,7 +287,7 @@ trait ContextChecker {
           case StoreExpr(i, isInit) => {
             checkExpr(lhs, scope, true, loopedCmd, elseBranch, initializedStores);
           }
-          case _ => throw InvalidstoreAssignment(lhs);
+          case _ => throw InvalidLValue(lhs);
         }
 
         val typeRhs = returnType(rhs, scope);
@@ -328,7 +330,7 @@ trait ContextChecker {
       case InputCmd(e) => {
         e match {
           case StoreExpr(i, init) => checkExpr(e, scope, true, loopedCmd, elseBranch, initializedStores)
-          case _ => throw InvalidstoreAssignment(e)
+          case _ => throw InvalidLValue(e)
         }
       }
       case OutputCmd(e) => {
@@ -371,11 +373,9 @@ trait ContextChecker {
     o.foreach(element => {
 
       // check if the given expression is valid
-      checkExpr(element._1, scope, false, looped, elseBranch, initialized)
-
-      // TODO default values?? (
       val flowMode = element._2.f.getOrElse(() => In);
       val changeMode = element._2.c.getOrElse(() => Const);
+      val mechMode = element._2.m.getOrElse(() => Copy);
 
       // TODO 
       // check flow mode (IML36)
@@ -383,6 +383,9 @@ trait ContextChecker {
       //        case In => {
       //        }
       //      }
+
+      val isAssignment = flowMode == Out || flowMode == InOut
+      checkExpr(element._1, scope, isAssignment, looped, elseBranch, initialized)
 
       // check type of argument
       val exprReturnType = returnType(element._1, scope);

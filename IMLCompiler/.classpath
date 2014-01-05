@@ -6,5 +6,7 @@
 	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-1.7"/>
 	<classpathentry exported="true" kind="lib" path="lib/asm-4.2.jar" sourcepath="lib/asm-4.2.zip"/>
 	<classpathentry kind="lib" path="C:/Dev/Scala/scala-2.10.2/lib/scala-library.jar"/>
+	<classpathentry kind="lib" path="lib/scalatest_2.10-2.0.jar"/>
+	<classpathentry kind="lib" path="lib/junit-4.11.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

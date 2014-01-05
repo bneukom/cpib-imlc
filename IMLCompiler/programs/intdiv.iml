@@ -1,7 +1,6 @@
 program intDiv(in const progInput:int)
 global
  proc divide(in copy m:int, in copy n:int, out ref var q:int, out ref var r:int)
- global in const x
  do
   q init:= 0;
   r init:= m;
@@ -15,10 +14,9 @@ global
  var q:int;
  var r:int
 do
- m init := 3;
- input m;
- input n init;
+ debugin m init;
+ debugin n init;
  call divide(m, n, q init, r init);
- output q;
- output r
+ debugout q;
+ debugout r
 endprogram
