@@ -1,0 +1,11 @@
+program function
+global
+var a:int;
+fun multby2(in ref a:int) returns var k:int
+do
+ k init := a * 2
+endfun
+do
+a init := 3;
+debugout multby2(1+2)
+endprogram

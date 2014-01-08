@@ -1,4 +1,4 @@
-program intDiv(in const progInput:int)
+program intDiv
 global
  proc divide(in copy m:int, in copy n:int, out ref var q:int, out ref var r:int)
  do

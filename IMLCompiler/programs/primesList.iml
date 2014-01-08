@@ -1,7 +1,6 @@
-program primesList() 
+program primesList
 global 
 	fun isPrime(in copy const p:int) returns var b:bool
-	global
 	local
 		var c:int
 	do
@@ -23,7 +22,7 @@ global
 		endif
 	endfun;
 
-	fun sum(in copy const l:[int]) returns var r:int
+	fun sum(in copy const l:[int]) returns const r:int
 	do
 		if length l == 0 do
 			r init := 0
@@ -31,10 +30,10 @@ global
 			r init := head l + sum(tail l)
 		endif
 	endfun;
-
+	
 	var l:[int];
 	var max:int
-do 
+do
 	debugin max init;
 	l init := { x | x from 0 to max when isPrime(x)};
 	debugout l;

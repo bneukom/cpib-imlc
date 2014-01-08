@@ -1,4 +1,4 @@
-program divisibility() 
+program divisibility
 global 
 	var l:[[int]];
 	const max:int;

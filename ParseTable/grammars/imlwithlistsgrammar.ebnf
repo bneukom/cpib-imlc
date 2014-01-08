@@ -26,10 +26,10 @@ type ::=  atomType | LBRACKET type RBRACKET;
 atomType ::= INT | BOOL;
 
 cmd ::= SKIP
- | CALL expr BECOMES expr
+ | expr BECOMES expr
  | IF expr THEN cpsCmd ELSE cpsCmd ENDIF
  | WHILE expr DO cpsCmd ENDWHILE
- | IDENT exprList [globInits]
+ | CALL IDENT exprList [globInits]
  | DEBUGIN expr
  | DEBUGOUT expr;
 cpsCmd ::= cmd {SEMICOLON cmd};

@@ -348,8 +348,8 @@ Da die Element Anzahl von IML Listen unveränderbar ist, werden sie in Java Arra
 Dies hat zur Folge, dass bei einer $tail$ oder $cons$ Operation das Array kopiert werden muss.
 
 \subsection{Out Parameter}
-Da die JVM keine Out oder Ref Parameter unterstützt müssen diese speziell behandelt werden. \\
-Für Out-Parameter wird der übergebene Store wird in ein Array der Länge Eins gespeichert. In der Prozedur werden alle Lese und Schreibe Operationen über dieses Array ausgeführt. Nach dem Aufruf der Prozedur wird der Parameter wieder aus dem Array gelesen und in den übergebenen Store geschrieben. \\
+Da die JVM keine Out oder Ref Parameter unterstützt, müssen diese speziell behandelt werden. \\
+Für Out-Parameter wird der übergebene Store in ein Array der Länge Eins gespeichert. In der Prozedur werden alle Lese und Schreibe Operationen über dieses Array ausgeführt. Nach dem Aufruf der Prozedur wird der Parameter wieder aus dem Array gelesen und in den übergebenen Store geschrieben. \\
 Ref Parameter wurden bei unserer Implementation nicht speziell behandelt. Sie funktionieren gleich wie Copy Out Parameter.
 
 \section{Resultate}
